@@ -1,0 +1,30 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Right
+ReferenceAlignment: Right
+DerivePointerAlignment: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  SplitEmptyFunction: false
+  SplitEmptyNamespace: false
+  SplitEmptyRecord: false
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SortIncludes: CaseInsensitive
+SortUsingDeclarations: true
