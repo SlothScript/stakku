@@ -26,6 +26,11 @@ class REPL {
     void saveSession(const std::string &path) const;
     void loadSession(const std::string &path);
 
+    void setStack(std::shared_ptr<Stack> stack) {
+        stack_ = std::move(stack);
+        interp.setStack(stack_);
+    }
+
     bool processSpecial(const std::string &line);
 
   private:
