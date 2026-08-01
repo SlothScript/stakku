@@ -5,13 +5,9 @@
 #include <string>
 #include <vector>
 
-namespace stakku {
-class StackUnderflow : public std::runtime_error {
-  public:
-    StackUnderflow() : std::runtime_error("stack underflow") {
-    }
-};
+#include "exceptions.h"
 
+namespace stakku {
 class Stack {
   public:
     // Stack ops

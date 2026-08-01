@@ -31,7 +31,7 @@ bool interpretFile(const char *filename) {
     ss << file.rdbuf();
     std::string content = ss.str();
 
-    std::vector<std::string> words = split(content, {" ", "\n"});
+    std::vector<Word> words = split(content, {" ", "\n"});
 
     Interpreter interp;
     try {
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    std::vector<std::string> words;
+    std::vector<Word> words;
     for (int i = 1; i < argc; i++)
         words.emplace_back(argv[i]);
 

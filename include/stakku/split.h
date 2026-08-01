@@ -4,21 +4,70 @@
 #include <string>
 #include <vector>
 
+#include "interpreter.h"
+
 namespace stakku {
 
-inline std::vector<std::string> split(const std::string &str,
-                                      const std::vector<std::string> &delimiters) {
-    std::vector<std::string> words;
+inline std::vector<Word> split(const std::string &str, const std::vector<std::string> &delimiters) {
+    std::vector<Word> words;
     std::string current;
+    int line = 1; // Initialize line number to 1
+    bool skipLine = false;
 
     for (size_t i = 0; i < str.size();) {
+        if (skipLine) {
+            if (str[i] == '\r' && i + 1 < str.size() && str[i + 1] == '\n') {
+                line++;
+                i += 2;
+                skipLine = false;
+                continue;
+            }
+            if (str[i] == '\n') {
+                line++;
+                i++;
+                skipLine = false;
+                continue;
+            }
+            i++;
+            continue;
+        }
+
+        // Check for Windows-style newline (\r\n)
+        if (str[i] == '\r' && i + 1 < str.size() && str[i + 1] == '\n') {
+            if (!current.empty()) {
+                words.emplace_back(current, line);
+                current.clear();
+            }
+            line++;
+            i += 2; // Skip both '\r' and '\n'
+            continue;
+        }
+
+        // Check for Unix-style newline (\n)
+        if (str[i] == '\n') {
+            if (!current.empty()) {
+                words.emplace_back(current, line);
+                current.clear();
+            }
+            line++;
+            i++;
+            continue;
+        }
+
         // Treat '(' and ')' as standalone tokens regardless of surrounding whitespace
         if (str[i] == '(' || str[i] == ')') {
             if (!current.empty()) {
-                words.push_back(current);
+                words.emplace_back(current, line);
                 current.clear();
             }
-            words.emplace_back(1, str[i]);
+            words.emplace_back(std::string(1, str[i]), line);
+            i++;
+            continue;
+        }
+
+        // Ignore line-level comments with '\'
+        if (str[i] == '\\') {
+            skipLine = true;
             i++;
             continue;
         }
@@ -34,7 +83,7 @@ inline std::vector<std::string> split(const std::string &str,
         }
         if (isDelimiter) {
             if (!current.empty())
-                words.push_back(current);
+                words.emplace_back(current, line);
             current.clear();
             // Ensure progress even if a zero-length delimiter sneaks in.
             i += (matchLen > 0 ? matchLen : 1);
@@ -44,7 +93,7 @@ inline std::vector<std::string> split(const std::string &str,
         }
     }
     if (!current.empty())
-        words.push_back(current);
+        words.emplace_back(current, line);
     return words;
 }
 

@@ -13,6 +13,17 @@
 namespace stakku {
 using WordFunc = std::function<void()>;
 
+struct Word {
+    std::string value;
+    int line = 1;
+
+    Word() = default;
+    Word(std::string value_, int line_ = 1) : value(std::move(value_)), line(line_) {
+    }
+    Word(const char *value_, int line_ = 1) : value(value_), line(line_) {
+    }
+};
+
 class Interpreter {
   public:
     bool hadError() const {
@@ -22,7 +33,7 @@ class Interpreter {
         return needsNewline_;
     }
 
-    void interpret(const std::vector<std::string> &words);
+    void interpret(const std::vector<Word> &words);
     void setStack(std::shared_ptr<Stack> stack) {
         sharedStack_ = std::move(stack);
     }

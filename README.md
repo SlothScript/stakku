@@ -25,6 +25,14 @@ Install (Optional):
 cmake --install .
 ```
 
+## Development
+
+Format the C/C++ sources in place (uses the repo-root `.clang-format`):
+
+```bash
+find include src -type f \( -name '*.h' -o -name '*.cpp' \) -print0 | xargs -0 clang-format -i
+```
+
 ## Quick Start
 
 Run a command:
@@ -32,7 +40,7 @@ Run a command:
 `10 ok`
 
 Run a file:
-`stakku sample.rpn`
+`stakku example.stku`
 
 ```txt
 125

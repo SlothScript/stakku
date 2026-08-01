@@ -1,28 +1,39 @@
-( Convert 98.6°F to Celsius: C = (F - 32) * 5 / 9 )
-98.6 32 - 5 * 9 / .        ( => 37.0 )
+\ Convert 98.6°F to Celsius: C = (F - 32) * 5 / 9
+98.6 32 - 5 * 9 / .        \ => 37.0
 cr
 
-( Print "OK" to confirm the calculation completed )
-79 emit                    ( O )
-75 emit                    ( K )
+\ Print "Hello, World!"
+72 emit                    \ H
+101 emit                   \ e
+108 emit                   \ l
+108 emit                   \ l
+111 emit                   \ o
+44 emit                    \ ,
+32 emit                    \ (space)
+87 emit                    \ W
+111 emit                   \ o
+114 emit                   \ r
+108 emit                   \ l
+100 emit                   \ d
+33 emit                    \ !
 cr
 
-( --- )
+\ ---
 
-( Now compute simple compound interest, 1 period: )
-( amount = principal * (1 + rate), rate = 0.05, principal = 1000 )
-1000 1.05 * .              ( => 1050 )
-cr
-
-( Demonstrate reuse of a value without re-entering it, )
-( using dup to compute both the square and cube of 4 )
-4 dup dup * .              ( => 16  (4^2) )
-cr
-4 dup dup * * .            ( => 64  (4^3) )
+\ Now compute simple compound interest, 1 period:
+\ amount = principal * (1 + rate), rate = 0.05, principal = 1000
+1000 1.05 * .              \ => 1050
 cr
 
-( Use swap + over to compute (a - b) and (a + b) from the same two inputs )
-7 3 over over              ( stack: 7 3 7 3 )
-+ .                        ( => 10  (7+3) )
+\ Demonstrate reuse of a value without re-entering it,
+\ using dup to compute both the square and cube of 4
+4 dup dup * .              \ => 16  (4^2)
 cr
-swap - .                   ( note: stack is now 7 3, adjust order deliberately )
+4 dup dup * * .            \ => 64  (4^3)
+cr
+
+\ Use swap + over to compute (a - b) and (a + b) from the same two inputs
+7 3 over over              \ stack: 7 3 7 3
++ .                        \ => 10  (7+3)
+cr
+swap - .                   \ note: stack is now 7 3, adjust order deliberately

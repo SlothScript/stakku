@@ -123,7 +123,7 @@ void REPL::processLine(const std::string &line) {
         return;
     }
 
-    std::vector<std::string> words = split(line, {" "});
+    std::vector<Word> words = split(line, {" "});
 
     try {
         interp.resetStates();

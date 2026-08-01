@@ -5,44 +5,93 @@ using namespace stakku;
 
 void Interpreter::ensureStackSet() const {
     if (!sharedStack_) {
-        throw std::runtime_error("stack not set");
+        throw StackNotSet();
     }
 }
 
-void Interpreter::interpret(const std::vector<std::string> &words) {
+void Interpreter::interpret(const std::vector<Word> &words) {
     bool isComment = false;
-    for (const std::string &word : words) {
-        if (word == "(") {
-            isComment = true;
-            continue;
-        } else if (word == ")") {
-            isComment = false;
-            continue;
-        }
-
-        if (word.empty() || isComment)
-            continue;
-
-        // Try parsing the token as a number first (accepts ".5", "+3", "-2", etc.)
+    for (const Word &word : words) {
         try {
-            size_t idx = 0;
-            double val = std::stod(word, &idx);
-            if (idx == word.size()) {
-                push(val);
+            if (word.value == "(") {
+                isComment = true;
+                continue;
+            } else if (word.value == ")") {
+                isComment = false;
                 continue;
             }
-        } catch (const std::invalid_argument &) {
-            // not a number; fall through
-        } catch (const std::out_of_range &) {
-            std::cerr << "Invalid number (out of range) >>> " << word << " <<<" << std::endl;
-            throw std::runtime_error(std::string("Invalid number: ") + word);
-        }
 
-        auto it = wordTable.find(word);
-        if (it != wordTable.end()) {
-            it->second();
-        } else {
-            throw std::runtime_error(std::string("Unknown word: ") + word);
+            if (word.value.empty() || isComment)
+                continue;
+
+            // Try parsing the token as a number first (accepts ".5", "+3", "-2", etc.)
+            try {
+                size_t idx = 0;
+                double val = std::stod(word.value, &idx);
+                if (idx == word.value.size()) {
+                    push(val);
+                    continue;
+                }
+            } catch (const std::invalid_argument &) {
+                // not a number; fall through
+            } catch (const std::out_of_range &) {
+                throw InvalidNumber(word.value);
+            }
+
+            auto it = wordTable.find(word.value);
+            if (it != wordTable.end()) {
+                it->second();
+            } else {
+                throw UnknownWord(word.value);
+            }
+        } catch (const StakkuException &e) {
+            // format error messages like this:
+            // prev line
+            // prev line
+            // line rest of the line with tokens
+            //          ^^^^^^^ error message
+            std::cerr << std::endl << std::endl;
+
+            // Print two lines above (if any)
+            for (int ln = static_cast<int>(word.line) - 2; ln <= static_cast<int>(word.line) - 1;
+                 ++ln) {
+                if (ln <= 0)
+                    continue;
+                // gather all tokens on that line
+                std::string lineText;
+                for (const auto &w : words) {
+                    if (static_cast<int>(w.line) == ln) {
+                        if (!lineText.empty())
+                            lineText += ' ';
+                        lineText += w.value;
+                    }
+                }
+                if (!lineText.empty()) {
+                    std::cerr << ln << " " << lineText << std::endl;
+                }
+            }
+
+            // Build the full current line text and compute caret position for this token
+            std::string fullLine;
+            size_t caretOffset = 0;
+            for (size_t k = 0; k < words.size(); ++k) {
+                if (words[k].line != word.line)
+                    continue;
+                if (!fullLine.empty())
+                    fullLine += ' ';
+                // If this is the word that caused the error, record offset before adding it
+                if (&words[k] == &word) {
+                    caretOffset = fullLine.size();
+                }
+                fullLine += words[k].value;
+            }
+
+            std::cerr << word.line << " " << fullLine << std::endl;
+            // Print caret line aligned under the offending token
+            std::cerr << std::string(std::to_string(word.line).size() + 1 + caretOffset, ' ')
+                      << std::string(word.value.size(), '^') << " " << e.what() << std::endl;
+            hadError_ = true;
+            break; // Stop processing further words on error
         }
     }
 }
@@ -68,7 +117,7 @@ void Interpreter::arithmetic(char type) {
     // popping either operand. Throw on error so callers consistently
     // receive exceptions rather than relying on hadError_ flag.
     if (type == '/' && sharedStack_->peek() == 0.0) {
-        throw std::runtime_error("Division by zero");
+        throw DivideByZero();
     }
 
     double b = sharedStack_->pop();
@@ -131,7 +180,7 @@ void Interpreter::emit() {
     ensureStackSet();
     double val = sharedStack_->pop();
     if (val < 0 || val > 255) {
-        throw std::runtime_error("emit: value out of ASCII range");
+        throw OutOfRange("emit value must be in range 0-255, got: " + std::to_string(val));
     }
     std::cout << static_cast<char>(val);
     needsNewline_ = true;
