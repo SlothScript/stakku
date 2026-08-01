@@ -33,8 +33,8 @@ bool isStackFile(const char *filename) {
     std::string line;
     while (std::getline(file, line)) {
         // Strip empty lines and "done" lines (if it was created by a previous .stack command)
-        // Potentially, you could also check for comments, but for now I'll just assume that a comment
-        // means it is an "executable" file.
+        // Potentially, you could also check for comments, but for now I'll just assume that a
+        // comment means it is an "executable" file.
         if (line.empty() || line == "done") {
             continue;
         }
@@ -95,11 +95,13 @@ int runReplWithFile(const char *filename) {
         return 1;
     }
     if (isStackFile(filename)) {
-        REPL repl(filename);  // pre-loads stack via loadSession
+        REPL repl(filename); // pre-loads stack via loadSession
         repl.open();
         return 0;
     }
-    std::cout << "File is not a valid stack file, executing as a script and opening a REPL with the final output stack." << std::endl;
+    std::cout << "File is not a valid stack file, executing as a script and opening a REPL with "
+                 "the final output stack."
+              << std::endl;
     auto stack = runFileIntoStack(filename);
     if (!stack) {
         return 1;

@@ -62,6 +62,8 @@ class Interpreter {
 
     void push(double value);
     void arithmetic(char type);
+    void comparison(char type);
+    void logical(char type);
     void print();
 
     void cr();
@@ -78,6 +80,9 @@ class Interpreter {
     std::unordered_map<std::string, WordFunc> wordTable = {
         {"+", [this] { arithmetic('+'); }}, {"-", [this] { arithmetic('-'); }},
         {"*", [this] { arithmetic('*'); }}, {"/", [this] { arithmetic('/'); }},
+        {"==", [this] { comparison('='); }},{"<", [this] { comparison('<'); }},
+        {">", [this] { comparison('>'); }}, {"AND", [this] { logical('&'); }},
+        {"OR", [this] { logical('|'); }},   {"NOT", [this] { logical('!'); }},
         {".", [this] { print(); }},         {"cr", [this] { cr(); }},
         {"dup", [this] { dup(); }},         {"drop", [this] { drop(); }},
         {"swap", [this] { swap(); }},       {"over", [this] { over(); }},

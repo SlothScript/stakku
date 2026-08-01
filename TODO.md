@@ -2,13 +2,13 @@
 
 ## In Progress
 
-## To Do
-
 ### Phase 1: Logic & Control (Turing-completeness)
 
-- [ ] Implement comparison operators (`<`, `>`, `==`, etc.)
+- [x] Implement comparison operators (`<`, `>`, `==`, etc.)
 - [ ] Implement control flow (`if/else/then`, `do/loop`)
-- [ ] Implement logical operations (`AND`, `OR`, `NOT`)
+- [x] Implement logical operations (`AND`, `OR`, `NOT`)
+
+## To Do
 
 ### Phase 2: Extensibility
 

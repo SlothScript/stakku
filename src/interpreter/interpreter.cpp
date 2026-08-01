@@ -138,6 +138,52 @@ void Interpreter::arithmetic(char type) {
     }
 }
 
+void Interpreter::comparison(char type) {
+    ensureStackSet();
+    if (sharedStack_->size() < 2) {
+        throw StackUnderflow();
+    }
+
+    double b = sharedStack_->pop();
+    double a = sharedStack_->pop();
+    switch (type) {
+    case '=':
+        sharedStack_->push(a == b ? 1.0 : 0.0);
+        break;
+    case '<':
+        sharedStack_->push(a < b ? 1.0 : 0.0);
+        break;
+    case '>':
+        sharedStack_->push(a > b ? 1.0 : 0.0);
+        break;
+    }
+}
+
+void Interpreter::logical(char type) {
+    ensureStackSet();
+    if (sharedStack_->size() < 2) {
+        throw StackUnderflow();
+    }
+
+    // Negation is a unary operator, so we handle it separately.
+    if (type == '!') {
+        double a = sharedStack_->pop();
+        sharedStack_->push(a == 0.0 ? 1.0 : 0.0);
+        return;
+    }
+
+    double b = sharedStack_->pop();
+    double a = sharedStack_->pop();
+    switch (type) {
+    case '&':
+        sharedStack_->push((a != 0.0 && b != 0.0) ? 1.0 : 0.0);
+        break;
+    case '|':
+        sharedStack_->push((a != 0.0 || b != 0.0) ? 1.0 : 0.0);
+        break;
+    }
+}
+
 void Interpreter::print() {
     ensureStackSet();
     std::cout << sharedStack_->pop();
