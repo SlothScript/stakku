@@ -1,11 +1,10 @@
 #pragma once
 
-#include <cctype>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "stack.h"
@@ -78,15 +77,15 @@ class Interpreter {
     void ensureStackSet() const;
 
     std::unordered_map<std::string, WordFunc> wordTable = {
-        {"+", [this] { arithmetic('+'); }}, {"-", [this] { arithmetic('-'); }},
-        {"*", [this] { arithmetic('*'); }}, {"/", [this] { arithmetic('/'); }},
-        {"==", [this] { comparison('='); }},{"<", [this] { comparison('<'); }},
-        {">", [this] { comparison('>'); }}, {"AND", [this] { logical('&'); }},
-        {"OR", [this] { logical('|'); }},   {"NOT", [this] { logical('!'); }},
-        {".", [this] { print(); }},         {"cr", [this] { cr(); }},
-        {"dup", [this] { dup(); }},         {"drop", [this] { drop(); }},
-        {"swap", [this] { swap(); }},       {"over", [this] { over(); }},
-        {"emit", [this] { emit(); }},       {"clear", [this] { clear(); }},
+        {"+", [this] { arithmetic('+'); }},  {"-", [this] { arithmetic('-'); }},
+        {"*", [this] { arithmetic('*'); }},  {"/", [this] { arithmetic('/'); }},
+        {"==", [this] { comparison('='); }}, {"<", [this] { comparison('<'); }},
+        {">", [this] { comparison('>'); }},  {"AND", [this] { logical('&'); }},
+        {"OR", [this] { logical('|'); }},    {"NOT", [this] { logical('!'); }},
+        {".", [this] { print(); }},          {"cr", [this] { cr(); }},
+        {"dup", [this] { dup(); }},          {"drop", [this] { drop(); }},
+        {"swap", [this] { swap(); }},        {"over", [this] { over(); }},
+        {"emit", [this] { emit(); }},        {"clear", [this] { clear(); }},
     };
 
     std::shared_ptr<Stack> sharedStack_;

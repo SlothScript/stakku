@@ -1,4 +1,5 @@
 #include "interpreter.h"
+#include <iostream>
 #include <stdexcept>
 
 using namespace stakku;

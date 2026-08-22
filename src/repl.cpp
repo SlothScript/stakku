@@ -1,4 +1,7 @@
 #include "repl.h"
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <sstream>
 
 using namespace stakku;

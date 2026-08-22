@@ -1,13 +1,8 @@
 #pragma once
 
-#include <algorithm>
-#include <cctype>
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <memory>
-#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "interpreter.h"
