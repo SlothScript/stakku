@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "interpreter.h"
+#include "interpreter/compiler.h"
 
 namespace stakku {
 
@@ -68,6 +68,16 @@ inline std::vector<Word> split(const std::string &str, const std::vector<std::st
         // Ignore line-level comments with '\'
         if (str[i] == '\\') {
             skipLine = true;
+            i++;
+            continue;
+        }
+
+        // Treat tab as whitespace delimiter
+        if (str[i] == '\t') {
+            if (!current.empty()) {
+                words.emplace_back(current, line);
+                current.clear();
+            }
             i++;
             continue;
         }

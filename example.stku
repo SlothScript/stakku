@@ -36,4 +36,40 @@ cr
 7 3 over over              \ stack: 7 3 7 3
 + .                        \ => 10  (7+3)
 cr
-swap - .                   \ note: stack is now 7 3, adjust order deliberately
+swap - .                   \ => -4  (3-7)
+cr
+
+\ ---
+\ Definitions:  : name ... ;
+\ A word is defined by naming it after `:` and closing with `;`.
+: square  dup * ;          \ square of a number
+5 square .                 \ => 25
+cr
+
+: greet                    \ a word that prints a message
+  72 emit 101 emit 108 emit 108 emit 111 emit 33 emit cr
+;
+greet                      \ => Hello!
+
+\ ---
+\ Comparisons leave 1 for true and 0 for false.
+10 20 <  .                 \ => 1  (true)
+cr
+5 5   =  .                 \ => 1  (true)
+cr
+
+\ ---
+\ Control flow:  if ... else ... then   (nonzero = true)
+\ abs: negate only when the number is negative
+: abs  dup 0 < if 0 swap - then ;
+-7 abs .                   \ => 7
+cr
+7 abs .                    \ => 7
+cr
+
+\ max: pick the greater of two values using if/else/then
+: max  over over < if swap drop else drop then ;
+3 7 max .                  \ => 7
+cr
+7 3 max .                  \ => 7
+cr

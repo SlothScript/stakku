@@ -1,6 +1,8 @@
 # stakku
 
-A simple RPN calculator now, a potential Forth interpreter later
+A less simple RPN calculator with some Forth-like elements.
+
+stakku is a work-in-progress RPN interpreter with a bytecode compiler, virtual machine, command-line execution, and an interactive REPL.
 
 ## Installation
 
@@ -36,35 +38,87 @@ find include src -type f \( -name '*.h' -o -name '*.cpp' \) -print0 | xargs -0 c
 ## Quick Start
 
 Run a command:
-`stakku 4 6 + .`
-`10 ok`
 
-Run a file:
-`stakku example.stku`
-
-```txt
-125
-25
-100 ok
+```text
+$ stakku 4 6 + .
+10 ok
 ```
 
-Open a REPL:
-`stakku` or `stakku repl`
+Run a file:
+
+```text
+$ stakku example.stku
+```
 
 ```txt
-> 4 6 + .
+37
+Hello, World!
+1050
+16
+64
+10
+-4
+25
+Hello!
+1
+1
+7
+7
+7
+7
+ ok
+```
+
+Scripts use whitespace-separated words.
+A backslash starts a comment that runs to the end of the line, and parenthesized comments are also supported.
+
+Open a REPL:
+
+```text
+$ stakku
+```
+
+```txt
+>>> 4 6 + .
 10 ok
-> 10
+>>> 10
 ok
-> 12
+>>> 12
 ok
-> +
+>>> +
 ok
-> .
+>>> .
 22 ok
 ```
 
+`stakku repl` opens the same REPL explicitly.
+Use `stakku repl filename` to load a serialized numeric stack file, or to execute a script and open a REPL with its final stack.
+
+REPL commands:
+
+```text
+.stack          display the current stack
+.clear          clear the current stack
+.save filename  save the current stack
+.load filename  load a saved stack
+bye             quit
+.q              quit
+```
+
+## Supported words
+
+| Category             | Words                    |
+| -------------------- | ------------------------ |
+| Arithmetic           | `+ - * /`                |
+| Comparison / logical | `= < > <= >= <>`         |
+| Stack                | `dup drop swap over rot` |
+| Output               | `. emit cr`              |
+| Control flow         | `if else then`           |
+| Definitions          | `: name ... ;`           |
+
+Numbers are represented as doubles. Comparisons leave `1` for true and `0` for false; `if` treats a nonzero value as true.
+
 ## Current Status
 
-Currently, `stakku` is a WIP, but aims to become a full Forth interpreter/compiler.
-As of now, it supports: `+ - * / . dup drop swap over emit clear cr`
+Currently, `stakku` is a WIP. It has a bytecode compiler and VM, with functions, comparisons, and logic, but does not yet provide the full Forth feature set.
+Planned areas include loops, additional boolean operators (`and`, `or`, `not`), memory access (`@`, `!`), and a broader standard word set.

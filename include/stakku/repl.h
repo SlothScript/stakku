@@ -3,17 +3,15 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
-#include "interpreter.h"
-#include "split.h"
-#include "stack.h"
+#include "interpreter/compiler.h"
+#include "interpreter/stack.h"
+#include "interpreter/vm.h"
 
 namespace stakku {
 class REPL {
   public:
-    REPL() : stack_(std::make_shared<Stack>()), interp() {
-        interp.setStack(stack_);
+    REPL() : stack_(std::make_shared<Stack>()), compiler(), vm() {
     }
     explicit REPL(const std::string &contextFile);
 
@@ -23,7 +21,6 @@ class REPL {
 
     void setStack(std::shared_ptr<Stack> stack) {
         stack_ = std::move(stack);
-        interp.setStack(stack_);
     }
 
     bool processSpecial(const std::string &line);
@@ -31,7 +28,8 @@ class REPL {
   private:
     bool running_ = true;
     std::shared_ptr<Stack> stack_;
-    Interpreter interp;
+    Compiler compiler;
+    VM vm;
     void processLine(const std::string &line);
 };
 } // namespace stakku

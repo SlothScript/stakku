@@ -45,4 +45,35 @@ class OutOfRange : public StakkuException {
     OutOfRange(std::string message) : StakkuException("Out of range: " + message) {
     }
 };
+
+class UnmatchedComment : public StakkuException {
+  public:
+    UnmatchedComment(std::string word) : StakkuException("Unmatched comment: " + word) {
+    }
+};
+
+class FunctionInFunction : public StakkuException {
+  public:
+    FunctionInFunction() : StakkuException("Cannot define a function inside another function") {
+    }
+};
+
+class UnmatchedFunction : public StakkuException {
+  public:
+    UnmatchedFunction() : StakkuException("Unmatched function definition (; without :)") {
+    }
+};
+
+class UnnamedFunction : public StakkuException {
+  public:
+    UnnamedFunction() : StakkuException("Function definition missing name (: name;)") {
+    }
+};
+
+class UnmatchedControlWord : public StakkuException {
+  public:
+    UnmatchedControlWord(std::string word) : StakkuException("Unmatched control word: " + word) {
+    }
+};
+
 } // namespace stakku

@@ -3,10 +3,13 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-#include "interpreter.h"
+#include "help.h"
+#include "interpreter/compiler.h"
+#include "interpreter/vm.h"
 #include "repl.h"
 #include "split.h"
 
@@ -30,17 +33,23 @@ bool isStackFile(const char *filename) {
         return false;
     }
 
+    bool sawNumber = false;
     std::string line;
     while (std::getline(file, line)) {
-        // Strip empty lines and "done" lines (if it was created by a previous .stack command)
-        // Potentially, you could also check for comments, but for now I'll just assume that a
-        // comment means it is an "executable" file.
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
         if (line.empty() || line == "done") {
             continue;
         }
 
         try {
-            std::stod(line);
+            size_t idx = 0;
+            std::stod(line, &idx);
+            if (idx != line.size()) {
+                return false;
+            }
+            sawNumber = true;
         } catch (const std::invalid_argument &) {
             return false;
         } catch (const std::out_of_range &) {
@@ -48,11 +57,9 @@ bool isStackFile(const char *filename) {
         }
     }
 
-    return true;
+    return sawNumber;
 }
 
-// Read a file, run it through the interpreter into a fresh stack, and
-// return that stack. Prints "ok" on success. Returns nullptr on any failure.
 std::shared_ptr<Stack> runFileIntoStack(const std::string &filename) {
     std::ifstream file(filename);
     if (!file) {
@@ -66,10 +73,14 @@ std::shared_ptr<Stack> runFileIntoStack(const std::string &filename) {
 
     std::vector<Word> words = split(content, {" ", "\n"});
 
-    Interpreter interp;
+    Compiler compiler;
+    VM vm;
     try {
-        interp.setStack(std::make_shared<Stack>());
-        interp.interpret(words);
+        auto bytecode = compiler.compile(words);
+        if (bytecode.empty()) {
+            return nullptr;
+        }
+        vm.execute(bytecode);
     } catch (const StackUnderflow &) {
         std::cerr << "Stack underflow" << std::endl;
         return nullptr;
@@ -78,24 +89,50 @@ std::shared_ptr<Stack> runFileIntoStack(const std::string &filename) {
         return nullptr;
     }
 
-    if (interp.hadError()) {
-        return nullptr;
+    if (vm.hadOutput()) {
+        std::cout << " ok" << std::endl;
+    } else {
+        std::cout << "ok" << std::endl;
     }
 
-    std::cout << (interp.needsNewline() ? " ok" : "ok") << std::endl;
-    return interp.getStack();
+    auto stack = std::make_shared<Stack>();
+    stack->deserialize(vm.saveStack());
+    return stack;
 }
 
-// Open a REPL seeded with the contents of a file. The file is treated as
-// saved stack state if it parses line-by-line as doubles; otherwise it's
-// interpreted as a program and the resulting stack becomes the REPL's stack.
+std::vector<uint8_t> compileFile(const std::string &filename) {
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "File could not be opened: " << filename << std::endl;
+        return {};
+    }
+
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    std::string content = ss.str();
+
+    std::vector<Word> words = split(content, {" ", "\n"});
+
+    Compiler compiler;
+    try {
+        auto bytecode = compiler.compile(words);
+        if (bytecode.empty()) {
+            throw std::runtime_error("File is empty");
+        }
+        return bytecode;
+    } catch (const std::runtime_error &e) {
+        std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
+        return std::vector<uint8_t>();
+    }
+}
+
 int runReplWithFile(const char *filename) {
     if (!fs::exists(filename)) {
         std::cerr << "File not found: " << filename << std::endl;
         return 1;
     }
     if (isStackFile(filename)) {
-        REPL repl(filename); // pre-loads stack via loadSession
+        REPL repl(filename);
         repl.open();
         return 0;
     }
@@ -130,6 +167,27 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    if (argc >= 3 && std::string(argv[1]) == "compile") {
+        std::vector<uint8_t> out = compileFile(argv[2]);
+        if (out.empty()) {
+            return 1;
+        }
+        std::string filename = (argc >= 4) ? argv[3] : "a.skbc";
+
+        std::ofstream fout;
+        fout.open(filename, std::fstream::binary);
+        fout.write(reinterpret_cast<const char *>(out.data()), out.size());
+        return 0;
+    }
+
+    if (argc >= 2) {
+        std::string sub(argv[1]);
+        if (sub == "help" || sub == "--help" || sub == "-h") {
+            printHelp();
+            return 0;
+        }
+    }
+
     if (checkFile(argv[1])) {
         if (!runFileIntoStack(argv[1])) {
             return 1;
@@ -141,10 +199,14 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++)
         words.emplace_back(argv[i]);
 
-    Interpreter interp;
+    Compiler compiler;
+    VM vm;
     try {
-        interp.setStack(std::make_shared<Stack>());
-        interp.interpret(words);
+        auto bytecode = compiler.compile(words);
+        if (bytecode.empty()) {
+            return 1;
+        }
+        vm.execute(bytecode);
     } catch (const StackUnderflow &) {
         std::cerr << "Stack underflow" << std::endl;
         return 1;
@@ -153,8 +215,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (!interp.hadError()) {
-        std::cout << (interp.needsNewline() ? " ok" : "ok") << std::endl;
+    if (vm.hadOutput()) {
+        std::cout << " ok" << std::endl;
+    } else {
+        std::cout << "ok" << std::endl;
     }
     return 0;
 }

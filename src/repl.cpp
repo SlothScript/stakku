@@ -1,4 +1,6 @@
 #include "repl.h"
+#include "help.h"
+#include "split.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -7,8 +9,7 @@
 using namespace stakku;
 namespace fs = std::filesystem;
 
-REPL::REPL(const std::string &contextFile) : stack_(std::make_shared<Stack>()), interp() {
-    interp.setStack(stack_);
+REPL::REPL(const std::string &contextFile) : stack_(std::make_shared<Stack>()), compiler(), vm() {
     loadSession(contextFile);
 }
 
@@ -19,8 +20,6 @@ void REPL::saveSession(const std::string &path) const {
         std::string overwrite;
         std::cout << "The file \"" << path << "\" already exists. Overwrite? [y/n] " << std::flush;
         std::cin >> overwrite;
-        // Drop the newline left behind by >> so the REPL loop's next
-        // getline doesn't immediately consume an empty line.
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::transform(overwrite.begin(), overwrite.end(), overwrite.begin(),
                        [](unsigned char c) { return std::tolower(c); });
@@ -76,6 +75,10 @@ static std::string takeArg(const std::string &line, const std::string &cmd) {
 }
 
 bool REPL::processSpecial(const std::string &line) {
+    if (line == ".help") {
+        printHelp();
+        return true;
+    }
     if (line == ".q") {
         running_ = false;
         return true;
@@ -99,8 +102,6 @@ bool REPL::processSpecial(const std::string &line) {
         if (filename.empty()) {
             std::cout << "Enter filename: " << std::flush;
             std::cin >> filename;
-            // Drop the newline left behind by >> so the REPL loop's next
-            // getline doesn't immediately consume an empty line.
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
         saveSession(filename);
@@ -111,8 +112,6 @@ bool REPL::processSpecial(const std::string &line) {
         if (filename.empty()) {
             std::cout << "Enter filename: " << std::flush;
             std::cin >> filename;
-            // Drop the newline left behind by >> so the REPL loop's next
-            // getline doesn't immediately consume an empty line.
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
         loadSession(filename);
@@ -129,11 +128,18 @@ void REPL::processLine(const std::string &line) {
     std::vector<Word> words = split(line, {" "});
 
     try {
-        interp.resetStates();
-        interp.interpret(words);
+        auto bytecode = compiler.compile(words);
+        if (bytecode.empty()) {
+            return;
+        }
+        vm.execute(bytecode, stack_->serialize());
+        stack_->deserialize(vm.saveStack());
+        if (vm.halted()) {
+            running_ = false;
+            return;
+        }
     } catch (const StackUnderflow &) {
-        // Clearing the stack here is intentional, according to the abort protocol in Forth.
-        std::cerr << "Stack underflow (stack cleared)" << std::endl;
+        std::cerr << "Stack underflow" << std::endl;
         stack_->clear();
         return;
     } catch (const std::runtime_error &e) {
@@ -141,7 +147,9 @@ void REPL::processLine(const std::string &line) {
         return;
     }
 
-    if (!interp.hadError()) {
-        std::cout << (interp.needsNewline() ? " ok" : "ok") << std::endl;
+    if (vm.hadOutput()) {
+        std::cout << " ok" << std::endl;
+    } else {
+        std::cout << "ok" << std::endl;
     }
 }

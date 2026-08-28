@@ -11,7 +11,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(SOURCES
     src/main.cpp
     src/repl.cpp
-    src/interpreter/interpreter.cpp
+    src/help.cpp
+    src/interpreter/compiler.cpp
+    src/interpreter/vm.cpp
     src/interpreter/stack.cpp
 )
 
