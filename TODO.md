@@ -10,6 +10,5 @@
 
 ### Runtime and tooling
 
-- [ ] Add automated tests
 - [ ] Improve malformed bytecode and numeric-range validation
 - [ ] Document the bytecode format and compiler architecture
