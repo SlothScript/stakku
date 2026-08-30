@@ -19,6 +19,8 @@ class REPL {
     void saveSession(const std::string &path) const;
     void loadSession(const std::string &path);
 
+    bool runProgram(const std::string &filename);
+
     void setStack(std::shared_ptr<Stack> stack) {
         stack_ = std::move(stack);
     }

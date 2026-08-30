@@ -139,12 +139,10 @@ int runReplWithFile(const char *filename) {
     std::cout << "File is not a valid stack file, executing as a script and opening a REPL with "
                  "the final output stack."
               << std::endl;
-    auto stack = runFileIntoStack(filename);
-    if (!stack) {
+    REPL repl;
+    if (!repl.runProgram(filename)) {
         return 1;
     }
-    REPL repl;
-    repl.setStack(std::move(stack));
     repl.open();
     return 0;
 }

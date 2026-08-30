@@ -1,0 +1,16 @@
+\ grade: takes a score 0..100 on the stack, prints its letter grade
+: grade
+  dup 90 >= if 65 emit else    \ A
+  dup 80 >= if 66 emit else    \ B
+  dup 70 >= if 67 emit else    \ C
+  dup 60 >= if 68 emit else    \ D
+  70 emit then then then then  \ F
+  cr
+;
+
+\ examples:
+95 grade
+82 grade
+73 grade
+64 grade
+45 grade

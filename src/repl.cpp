@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 using namespace stakku;
 namespace fs = std::filesystem;
@@ -56,6 +57,47 @@ void REPL::loadSession(const std::string &path) {
     } catch (const std::exception &e) {
         std::cerr << "Failed to load session: " << e.what() << std::endl;
     }
+}
+
+bool REPL::runProgram(const std::string &filename) {
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "File could not be opened: " << filename << std::endl;
+        return false;
+    }
+
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    std::string content = ss.str();
+
+    std::vector<Word> words = split(content, {" ", "\n"});
+
+    try {
+        auto bytecode = compiler.compile(words);
+        if (bytecode.empty()) {
+            return false;
+        }
+        vm.execute(bytecode, stack_->serialize());
+        stack_->deserialize(vm.saveStack());
+        if (vm.halted()) {
+            running_ = false;
+            return true;
+        }
+    } catch (const StackUnderflow &) {
+        std::cerr << "Stack underflow" << std::endl;
+        stack_->clear();
+        return false;
+    } catch (const std::runtime_error &e) {
+        std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
+        return false;
+    }
+
+    if (vm.hadOutput()) {
+        std::cout << " ok" << std::endl;
+    } else {
+        std::cout << "ok" << std::endl;
+    }
+    return true;
 }
 
 void REPL::open() {
