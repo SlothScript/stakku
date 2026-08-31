@@ -63,17 +63,17 @@ TEST_CASE("Comprehensive: VM stack manipulation", "[comprehensive]") {
 }
 
 TEST_CASE("Comprehensive: VM comparisons", "[comprehensive]") {
-    REQUIRE(run_stakku("1 1 =") == 1.0);
+    REQUIRE(run_stakku("1 1 =") == -1.0);
     REQUIRE(run_stakku("1 2 =") == 0.0);
-    REQUIRE(run_stakku("1 2 <") == 1.0);
+    REQUIRE(run_stakku("1 2 <") == -1.0);
     REQUIRE(run_stakku("2 1 <") == 0.0);
-    REQUIRE(run_stakku("2 1 >") == 1.0);
+    REQUIRE(run_stakku("2 1 >") == -1.0);
     REQUIRE(run_stakku("1 2 >") == 0.0);
-    REQUIRE(run_stakku("1 1 <=") == 1.0);
+    REQUIRE(run_stakku("1 1 <=") == -1.0);
     REQUIRE(run_stakku("2 1 <=") == 0.0);
-    REQUIRE(run_stakku("2 2 >=") == 1.0);
+    REQUIRE(run_stakku("2 2 >=") == -1.0);
     REQUIRE(run_stakku("1 2 >=") == 0.0);
-    REQUIRE(run_stakku("1 2 <>") == 1.0);
+    REQUIRE(run_stakku("1 2 <>") == -1.0);
     REQUIRE(run_stakku("1 1 <>") == 0.0);
 }
 
@@ -101,7 +101,7 @@ TEST_CASE("Comprehensive: complex logic", "[comprehensive]") {
     vm.execute(compiler.compile(def));
 
     vm.execute(compiler.compile({stakku::Word("1"), stakku::Word("is_one")}));
-    REQUIRE(vm.getStack().peek(0) == 1.0);
+    REQUIRE(vm.getStack().peek(0) == -1.0);
 
     vm.execute(compiler.compile({stakku::Word("2"), stakku::Word("is_one")}));
     REQUIRE(vm.getStack().peek(0) == 0.0);

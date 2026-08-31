@@ -26,26 +26,31 @@ Bytecode format (matches stakku's OpCode enum, one byte per opcode):
     0x03 OP_SUB         (no operand)
     0x04 OP_MUL         (no operand)
     0x05 OP_DIV         (no operand)
-    0x06 OP_EQ          (no operand)
-    0x07 OP_LT          (no operand)
-    0x08 OP_GT          (no operand)
-    0x09 OP_LE          (no operand)
-    0x0A OP_GE          (no operand)
-    0x0B OP_NEQ         (no operand)
-    0x0C OP_DUP         (no operand)
-    0x0D OP_DROP        (no operand)
-    0x0E OP_SWAP        (no operand)
-    0x0F OP_OVER        (no operand)
-    0x10 OP_ROT         (no operand)
-    0x11 OP_PRINT       (no operand)
-    0x12 OP_EMIT        (no operand)
-    0x13 OP_CR          (no operand)
-    0x14 OP_JMP         2-byte little-endian uint16 address operand
-    0x15 OP_JMP_IF_Z    2-byte little-endian uint16 address operand
-    0x16 OP_CALL        2-byte little-endian uint16 address operand
-    0x17 OP_RETURN      (no operand)
-    0x18 OP_CLEAR       (no operand)
-    0x19 OP_BYE         (no operand)
+    0x06 OP_MOD         (no operand)
+    0x07 OP_EQ          (no operand)
+    0x08 OP_LT          (no operand)
+    0x09 OP_GT          (no operand)
+    0x0A OP_LE          (no operand)
+    0x0B OP_GE          (no operand)
+    0x0C OP_NEQ         (no operand)
+    0x0D OP_AND         (no operand)
+    0x0E OP_OR          (no operand)
+    0x0F OP_NOT         (no operand)
+    0x10 OP_XOR         (no operand)
+    0x11 OP_DUP         (no operand)
+    0x12 OP_DROP        (no operand)
+    0x13 OP_SWAP        (no operand)
+    0x14 OP_OVER        (no operand)
+    0x15 OP_ROT         (no operand)
+    0x16 OP_PRINT       (no operand)
+    0x17 OP_EMIT        (no operand)
+    0x18 OP_CR          (no operand)
+    0x19 OP_CLEAR       (no operand)
+    0x1A OP_JMP         2-byte little-endian uint16 address operand
+    0x1B OP_JMP_IF_Z    2-byte little-endian uint16 address operand
+    0x1C OP_CALL        2-byte little-endian uint16 address operand
+    0x1D OP_RETURN      (no operand)
+    0x1E OP_BYE         (no operand)
 
 NOTE on operand byte order: the header only says "unsigned 16 bit addr" /
 "8 bytes ... (double)" without specifying endianness. This tool assumes
@@ -54,6 +59,7 @@ a raw double/uint16_t). If your compiler/VM writes big-endian, flip
 ENDIAN below.
 """
 
+import math
 import struct
 import sys
 import tkinter as tk
@@ -71,26 +77,31 @@ OPCODES = {
     0x03: ("OP_SUB", 0),
     0x04: ("OP_MUL", 0),
     0x05: ("OP_DIV", 0),
-    0x06: ("OP_EQ", 0),
-    0x07: ("OP_LT", 0),
-    0x08: ("OP_GT", 0),
-    0x09: ("OP_LE", 0),
-    0x0A: ("OP_GE", 0),
-    0x0B: ("OP_NEQ", 0),
-    0x0C: ("OP_DUP", 0),
-    0x0D: ("OP_DROP", 0),
-    0x0E: ("OP_SWAP", 0),
-    0x0F: ("OP_OVER", 0),
-    0x10: ("OP_ROT", 0),
-    0x11: ("OP_PRINT", 0),
-    0x12: ("OP_EMIT", 0),
-    0x13: ("OP_CR", 0),
-    0x14: ("OP_JMP", 2),
-    0x15: ("OP_JMP_IF_Z", 2),
-    0x16: ("OP_CALL", 2),
-    0x17: ("OP_RETURN", 0),
-    0x18: ("OP_CLEAR", 0),
-    0x19: ("OP_BYE", 0),
+    0x06: ("OP_MOD", 0),
+    0x07: ("OP_EQ", 0),
+    0x08: ("OP_LT", 0),
+    0x09: ("OP_GT", 0),
+    0x0A: ("OP_LE", 0),
+    0x0B: ("OP_GE", 0),
+    0x0C: ("OP_NEQ", 0),
+    0x0D: ("OP_AND", 0),
+    0x0E: ("OP_OR", 0),
+    0x0F: ("OP_NOT", 0),
+    0x10: ("OP_XOR", 0),
+    0x11: ("OP_DUP", 0),
+    0x12: ("OP_DROP", 0),
+    0x13: ("OP_SWAP", 0),
+    0x14: ("OP_OVER", 0),
+    0x15: ("OP_ROT", 0),
+    0x16: ("OP_PRINT", 0),
+    0x17: ("OP_EMIT", 0),
+    0x18: ("OP_CR", 0),
+    0x19: ("OP_CLEAR", 0),
+    0x1A: ("OP_JMP", 2),
+    0x1B: ("OP_JMP_IF_Z", 2),
+    0x1C: ("OP_CALL", 2),
+    0x1D: ("OP_RETURN", 0),
+    0x1E: ("OP_BYE", 0),
 }
 
 BG = "#1e1e1e"
@@ -369,22 +380,42 @@ class StakkuVisualizer:
             ds.append(a / b)
         elif mnem == "OP_EQ":
             b, a = ds.pop(), ds.pop()
-            ds.append(1.0 if a == b else 0.0)
+            ds.append(-1.0 if a == b else 0.0)
         elif mnem == "OP_LT":
             b, a = ds.pop(), ds.pop()
-            ds.append(1.0 if a < b else 0.0)
+            ds.append(-1.0 if a < b else 0.0)
         elif mnem == "OP_GT":
             b, a = ds.pop(), ds.pop()
-            ds.append(1.0 if a > b else 0.0)
+            ds.append(-1.0 if a > b else 0.0)
         elif mnem == "OP_LE":
             b, a = ds.pop(), ds.pop()
-            ds.append(1.0 if a <= b else 0.0)
+            ds.append(-1.0 if a <= b else 0.0)
         elif mnem == "OP_GE":
             b, a = ds.pop(), ds.pop()
-            ds.append(1.0 if a >= b else 0.0)
+            ds.append(-1.0 if a >= b else 0.0)
         elif mnem == "OP_NEQ":
             b, a = ds.pop(), ds.pop()
-            ds.append(1.0 if a != b else 0.0)
+            ds.append(-1.0 if a != b else 0.0)
+        elif mnem == "OP_MOD":
+            b, a = ds.pop(), ds.pop()
+            if b == 0:
+                raise ZeroDivisionError
+            result = a - b * math.floor(a / b)
+            if result == -0.0:
+                result = 0.0
+            ds.append(result)
+        elif mnem == "OP_AND":
+            b, a = ds.pop(), ds.pop()
+            ds.append(float(self._safe_int(a) & self._safe_int(b)))
+        elif mnem == "OP_OR":
+            b, a = ds.pop(), ds.pop()
+            ds.append(float(self._safe_int(a) | self._safe_int(b)))
+        elif mnem == "OP_NOT":
+            a = ds.pop()
+            ds.append(float(~self._safe_int(a)))
+        elif mnem == "OP_XOR":
+            b, a = ds.pop(), ds.pop()
+            ds.append(float(self._safe_int(a) ^ self._safe_int(b)))
         elif mnem == "OP_DUP":
             ds.append(ds[-1])
         elif mnem == "OP_DROP":
@@ -428,6 +459,20 @@ class StakkuVisualizer:
             return
 
         s.pc += 1
+
+    @staticmethod
+    def _safe_int(v: float) -> int:
+        if v != v:
+            return 0
+        if v == float('inf'):
+            return 9223372036854775807
+        if v == float('-inf'):
+            return -9223372036854775808
+        if v >= 9223372036854775807.0:
+            return 9223372036854775807
+        if v <= -9223372036854775808.0:
+            return -9223372036854775808
+        return int(v)
 
     @staticmethod
     def _formatNumber(n: float) -> str:

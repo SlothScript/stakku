@@ -52,10 +52,10 @@ cr
 greet                      \ => Hello!
 
 \ ---
-\ Comparisons leave 1 for true and 0 for false.
-10 20 <  .                 \ => 1  (true)
+\ Comparisons leave -1 for true and 0 for false.
+10 20 <  .                 \ => -1  (true)
 cr
-5 5   =  .                 \ => 1  (true)
+5 5   =  .                 \ => -1  (true)
 cr
 
 \ ---

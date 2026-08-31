@@ -1,8 +1,10 @@
 #include "vm.h"
 #include "exceptions.h"
 #include "opcode.h"
+#include <cmath>
 #include <csignal>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 
 using namespace stakku;
@@ -48,6 +50,10 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
             div_();
             pc++;
             break;
+        case OpCode::OP_MOD:
+            mod();
+            pc++;
+            break;
         case OpCode::OP_EQ:
             eq();
             pc++;
@@ -70,6 +76,22 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
             break;
         case OpCode::OP_NEQ:
             neq();
+            pc++;
+            break;
+        case OpCode::OP_AND:
+            and_();
+            pc++;
+            break;
+        case OpCode::OP_OR:
+            or_();
+            pc++;
+            break;
+        case OpCode::OP_XOR:
+            xor_();
+            pc++;
+            break;
+        case OpCode::OP_NOT:
+            not_();
             pc++;
             break;
         case OpCode::OP_DUP:
@@ -199,6 +221,19 @@ void VM::div_() {
     stack.push(a / b);
 }
 
+void VM::mod() {
+    double b = stack.pop();
+    if (b == 0) {
+        throw DivideByZero();
+    }
+    double a = stack.pop();
+
+    double result = a - b * std::floor(a / b);
+    if (result == -0.0)
+        result = 0.0;
+    stack.push(result);
+}
+
 void VM::eq() {
     if (stack.size() < 2) {
         throw StackUnderflow();
@@ -206,11 +241,7 @@ void VM::eq() {
 
     double b = stack.pop();
     double a = stack.pop();
-    if (a == b) {
-        stack.push(1.0);
-    } else {
-        stack.push(0.0);
-    }
+    stack.push(a == b ? -1.0 : 0.0);
 }
 
 void VM::lt() {
@@ -220,11 +251,7 @@ void VM::lt() {
 
     double b = stack.pop();
     double a = stack.pop();
-    if (a < b) {
-        stack.push(1.0);
-    } else {
-        stack.push(0.0);
-    }
+    stack.push(a < b ? -1.0 : 0.0);
 }
 
 void VM::gt() {
@@ -234,11 +261,7 @@ void VM::gt() {
 
     double b = stack.pop();
     double a = stack.pop();
-    if (a > b) {
-        stack.push(1.0);
-    } else {
-        stack.push(0.0);
-    }
+    stack.push(a > b ? -1.0 : 0.0);
 }
 
 void VM::le() {
@@ -248,11 +271,7 @@ void VM::le() {
 
     double b = stack.pop();
     double a = stack.pop();
-    if (a <= b) {
-        stack.push(1.0);
-    } else {
-        stack.push(0.0);
-    }
+    stack.push(a <= b ? -1.0 : 0.0);
 }
 
 void VM::ge() {
@@ -262,11 +281,7 @@ void VM::ge() {
 
     double b = stack.pop();
     double a = stack.pop();
-    if (a >= b) {
-        stack.push(1.0);
-    } else {
-        stack.push(0.0);
-    }
+    stack.push(a >= b ? -1.0 : 0.0);
 }
 
 void VM::neq() {
@@ -276,11 +291,77 @@ void VM::neq() {
 
     double b = stack.pop();
     double a = stack.pop();
-    if (a != b) {
-        stack.push(1.0);
-    } else {
-        stack.push(0.0);
+    stack.push(a != b ? -1.0 : 0.0);
+}
+
+void VM::and_() {
+    if (stack.size() < 2) {
+        throw StackUnderflow();
     }
+
+    double b = stack.pop();
+    double a = stack.pop();
+    int64_t ia = static_cast<int64_t>(a);
+    int64_t ib = static_cast<int64_t>(b);
+    if (std::isnan(a))
+        ia = 0;
+    if (std::isnan(b))
+        ib = 0;
+    stack.push(static_cast<double>(ia & ib));
+}
+
+void VM::or_() {
+    if (stack.size() < 2) {
+        throw StackUnderflow();
+    }
+
+    double b = stack.pop();
+    double a = stack.pop();
+    int64_t ia = static_cast<int64_t>(a);
+    int64_t ib = static_cast<int64_t>(b);
+    if (std::isinf(a))
+        ia = INT64_MAX;
+    if (std::isinf(b))
+        ib = INT64_MAX;
+    if (std::isnan(a))
+        ia = 0;
+    if (std::isnan(b))
+        ib = 0;
+    stack.push(static_cast<double>(ia | ib));
+}
+
+void VM::xor_() {
+    if (stack.size() < 2) {
+        throw StackUnderflow();
+    }
+
+    double b = stack.pop();
+    double a = stack.pop();
+    int64_t ia = static_cast<int64_t>(a);
+    int64_t ib = static_cast<int64_t>(b);
+    if (std::isinf(a))
+        ia = INT64_MAX;
+    if (std::isinf(b))
+        ib = INT64_MAX;
+    if (std::isnan(a))
+        ia = 0;
+    if (std::isnan(b))
+        ib = 0;
+    stack.push(static_cast<double>(ia ^ ib));
+}
+
+void VM::not_() {
+    if (stack.empty()) {
+        throw StackUnderflow();
+    }
+
+    double a = stack.pop();
+    int64_t ia = static_cast<int64_t>(a);
+    if (std::isnan(a))
+        ia = 0;
+    if (std::isinf(a))
+        ia = INT64_MAX;
+    stack.push(static_cast<double>(~ia));
 }
 
 void VM::dup() {

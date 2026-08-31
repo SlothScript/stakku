@@ -28,7 +28,7 @@ void printHelp(std::ostream &os) {
           "  Definitions          : name ... ;\n"
           "  Misc                 bye\n"
           "\n"
-          "  Comparisons leave 1 for true and 0 for false; `if` treats a nonzero\n"
+          "  Comparisons leave -1 for true and 0 for false; `if` treats a nonzero\n"
           "  value as true.\n"
           "\n"
           "REPL COMMANDS\n"

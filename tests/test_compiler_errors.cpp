@@ -15,8 +15,7 @@ TEST_CASE("Compiler errors: function inside function", "[compiler_errors]") {
 TEST_CASE("Compiler errors: if without then", "[compiler_errors]") {
     stakku::Compiler compiler;
     // Unterminated if.
-    auto bc1 =
-        compiler.compile({stakku::Word("1"), stakku::Word("if"), stakku::Word("10")});
+    auto bc1 = compiler.compile({stakku::Word("1"), stakku::Word("if"), stakku::Word("10")});
     REQUIRE(bc1.empty());
 
     // else without matching if.
