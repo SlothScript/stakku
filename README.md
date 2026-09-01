@@ -111,6 +111,7 @@ bye             quit
 | -------------------- | ------------------------ |
 | Arithmetic           | `+ - * /`                |
 | Comparison / logical | `= < > <= >= <>`         |
+| Bitwise              | `and or xor invert`      |
 | Stack                | `dup drop swap over rot` |
 | Output               | `. emit cr`              |
 | Control flow         | `if else then`           |
@@ -121,4 +122,4 @@ Numbers are represented as doubles. Comparisons leave `1` for true and `0` for f
 ## Current Status
 
 Currently, `stakku` is a WIP. It has a bytecode compiler and VM, with functions, comparisons, and logic, but does not yet provide the full Forth feature set.
-Planned areas include loops, additional boolean operators (`and`, `or`, `not`), memory access (`@`, `!`), and a broader standard word set.
+Planned areas include loops, memory access (`@`, `!`), and a broader standard word set.

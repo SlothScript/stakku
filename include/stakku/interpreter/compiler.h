@@ -76,13 +76,13 @@ class Compiler {
         {"bye", OpCode::OP_BYE},
 
         {"+", OpCode::OP_ADD},       {"-", OpCode::OP_SUB},     {"*", OpCode::OP_MUL},
-        {"/", OpCode::OP_DIV},       {"MOD", OpCode::OP_MOD},
+        {"/", OpCode::OP_DIV},       {"mod", OpCode::OP_MOD},
 
         {"=", OpCode::OP_EQ},        {"<", OpCode::OP_LT},      {">", OpCode::OP_GT},
         {"<=", OpCode::OP_LE},       {">=", OpCode::OP_GE},     {"<>", OpCode::OP_NEQ},
 
-        {"AND", OpCode::OP_AND},     {"OR", OpCode::OP_OR},     {"XOR", OpCode::OP_XOR},
-        {"INVERT", OpCode::OP_NOT},
+        {"and", OpCode::OP_AND},     {"or", OpCode::OP_OR},     {"xor", OpCode::OP_XOR},
+        {"invert", OpCode::OP_NOT},
 
         {"dup", OpCode::OP_DUP},     {"drop", OpCode::OP_DROP}, {"swap", OpCode::OP_SWAP},
         {"over", OpCode::OP_OVER},   {"rot", OpCode::OP_ROT},
