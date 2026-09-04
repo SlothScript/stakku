@@ -22,7 +22,9 @@ struct Word {
 
 class Compiler {
   public:
-    Compiler() : commentDepth(0), isDefining(false), expectName(false) {
+    Compiler()
+        : nextMemAddr(0), expectVariable(false), commentDepth(0), isDefining(false),
+          expectName(false) {
     }
     std::vector<uint8_t> compile(const std::vector<Word> &words);
 
@@ -53,6 +55,10 @@ class Compiler {
         currentDefCallPatches; // patches recorded while inside a `:` def, positions local to
                                // defBytecode
 
+    std::unordered_map<std::string, size_t> variables;
+    size_t nextMemAddr;
+    bool expectVariable;
+
     int commentDepth;
 
     bool isDefining;
@@ -76,6 +82,8 @@ class Compiler {
 
     const std::unordered_map<std::string, OpCode> simpleWords = {
         {"bye", OpCode::OP_BYE},
+
+        {"!", OpCode::OP_STORE},     {"@", OpCode::OP_FETCH},
 
         {"+", OpCode::OP_ADD},       {"-", OpCode::OP_SUB},     {"*", OpCode::OP_MUL},
         {"/", OpCode::OP_DIV},       {"mod", OpCode::OP_MOD},

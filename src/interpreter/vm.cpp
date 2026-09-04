@@ -4,8 +4,8 @@
 #include <cmath>
 #include <csignal>
 #include <cstdint>
-#include <iostream>
 #include <cstring>
+#include <iostream>
 
 using namespace stakku;
 
@@ -23,6 +23,7 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
     rStack.clear();
     running = true;
     stack.clear();
+    memory.clear();
     if (!initialStack.empty()) {
         stack.deserialize(initialStack);
     }
@@ -34,6 +35,14 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
             break;
         case OpCode::OP_PUSH_NUM:
             push(ops);
+            break;
+        case OpCode::OP_FETCH:
+            fetch();
+            pc++;
+            break;
+        case OpCode::OP_STORE:
+            store();
+            pc++;
             break;
         case OpCode::OP_ADD:
             add();
@@ -165,6 +174,9 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
             j_index();
             pc++;
             break;
+        case OpCode::OP_ALLOC:
+            alloc(ops);
+            break;
         default:
             throw StakkuException("Unknown opcode: 0x" + toHex(static_cast<uint8_t>(op)) +
                                   " at pc=" + std::to_string(pc));
@@ -195,6 +207,23 @@ void VM::push(const std::vector<uint8_t> &bytecode) {
     std::memcpy(&value, &bytecode[pc + 1], sizeof(double));
     pc += 1 + sizeof(double);
     stack.push(value);
+}
+
+void VM::fetch() {
+    if (stack.size() < 1) {
+        throw StackUnderflow();
+    }
+    double addr = stack.pop();
+    stack.push(memory.fetch(addr));
+}
+
+void VM::store() {
+    if (stack.size() < 2) {
+        throw StackUnderflow();
+    }
+    double addr = stack.pop();
+    double value = stack.pop();
+    memory.store(addr, value);
 }
 
 void VM::add() {
@@ -557,4 +586,13 @@ void VM::j_index() {
         throw StakkuException("No outer loop index to fetch (OP_J)");
     }
     stack.push(rStack.peek(2));
+}
+
+void VM::alloc(const std::vector<uint8_t> &bytecode) {
+    checkBounds(bytecode, pc, 1 + sizeof(uint16_t));
+    uint16_t count;
+    std::memcpy(&count, &bytecode[pc + 1], sizeof(uint16_t));
+    for (uint16_t i = 0; i < count; ++i)
+        memory.allocate();
+    pc += 1 + sizeof(uint16_t);
 }

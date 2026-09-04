@@ -1,5 +1,6 @@
 #pragma once
 
+#include "memory.h"
 #include "stack.h"
 #include <cstdint>
 #include <functional>
@@ -38,6 +39,7 @@ class VM {
     Stack stack;
     Stack rStack;
     std::vector<size_t> returnStack;
+    Memory memory;
     size_t pc = 0;
     bool running = true;
     bool hadOutput_ = false;
@@ -46,6 +48,8 @@ class VM {
     void halt();
     void bye();
     void push(const std::vector<uint8_t> &bytecode);
+    void fetch();
+    void store();
     void add();
     void sub();
     void mul();
@@ -79,6 +83,7 @@ class VM {
     void fetch_r();
     void loop(const std::vector<uint8_t> &bytecode);
     void j_index();
+    void alloc(const std::vector<uint8_t> &bytecode);
 
     std::string toHex(uint8_t v);
 };

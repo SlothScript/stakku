@@ -48,8 +48,8 @@ bool Compiler::lookupWord(const std::string &name, size_t &offset) const {
 
 bool Compiler::isReservedName(const std::string &name) const {
     static const std::unordered_set<std::string> reserved = {
-        ":",     ";",      "if", "else", "then", "(", ")",    "begin",
-        "while", "repeat", "do", "loop", "i",    "j", "leave"};
+        ":",      ";",  "if",   "else", "then", "(",     ")", "begin", "while",
+        "repeat", "do", "loop", "i",    "j",    "leave", "@", "!",     "variable"};
     std::string lower = toLower(name);
     if (reserved.find(lower) != reserved.end())
         return true;
@@ -171,9 +171,12 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
     commentDepth = 0;
     isDefining = false;
     expectName = false;
+    expectVariable = false;
     defName.clear();
     defBytecode.clear();
     pendingDefs.clear();
+    variables.clear();
+    nextMemAddr = 0;
 
     const Word *currentWord = nullptr;
     try {
@@ -209,6 +212,23 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
                 }
                 defName = lower;
                 expectName = false;
+                continue;
+            }
+            if (expectVariable) {
+                if (isReservedName(lower)) {
+                    throw StakkuException("Cannot use reserved word as a variable name: " +
+                                          word.value);
+                }
+
+                size_t addr = nextMemAddr++;
+                variables[lower] = addr;
+                expectVariable = false;
+                continue;
+            }
+
+            auto it = variables.find(lower);
+            if (it != variables.end()) {
+                emitPushNum(it->second);
                 continue;
             }
 
@@ -321,6 +341,10 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
                 patchJmp(whilePatch, buf.size());
                 continue;
             }
+            if (lower == "variable") {
+                expectVariable = true;
+                continue;
+            }
 
             size_t offset = 0;
             if (lookupWord(lower, offset)) {
@@ -376,6 +400,15 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
         if (currentWord)
             parseStakkuError(e, *currentWord, words);
         return {};
+    }
+
+    if (nextMemAddr > 0) {
+        bytecode.insert(bytecode.begin(), static_cast<uint8_t>(OpCode::OP_ALLOC));
+        uint16_t count = static_cast<uint16_t>(nextMemAddr);
+        bytecode.insert(bytecode.begin() + 1, static_cast<uint8_t>(count & 0xFF));
+        bytecode.insert(bytecode.begin() + 2, static_cast<uint8_t>((count >> 8) & 0xFF));
+        for (auto &[pos, target] : topLevelCallPatches)
+            pos += 3;
     }
 
     bytecode.push_back(static_cast<uint8_t>(OpCode::OP_HALT));

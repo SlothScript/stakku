@@ -61,6 +61,7 @@ if(BUILD_TESTING)
         tests/test_comprehensive.cpp
         tests/test_vm_ops.cpp
         tests/test_compiler_errors.cpp
+        tests/test_variables.cpp
     )
 
     add_executable(stakku_tests ${TEST_SOURCES})
