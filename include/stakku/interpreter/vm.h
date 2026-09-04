@@ -25,6 +25,7 @@ class VM {
     }
     void abort() {
         stack.clear();
+        rStack.clear();
         returnStack.clear();
         hadOutput_ = false;
         running = false;
@@ -35,6 +36,7 @@ class VM {
 
   private:
     Stack stack;
+    Stack rStack;
     std::vector<size_t> returnStack;
     size_t pc = 0;
     bool running = true;
@@ -72,6 +74,11 @@ class VM {
     void jmp_if_z(const std::vector<uint8_t> &bytecode);
     void call(const std::vector<uint8_t> &bytecode);
     void call_return(const std::vector<uint8_t> &bytecode);
+    void to_r();
+    void from_r();
+    void fetch_r();
+    void loop(const std::vector<uint8_t> &bytecode);
+    void j_index();
 
     std::string toHex(uint8_t v);
 };

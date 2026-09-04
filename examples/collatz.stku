@@ -1,0 +1,25 @@
+\ The collatz conjecture is just so awesome
+\ Here is an implementation of it that prints the collatz path for every number up to the one in stack
+\ It also helps test the loops
+
+: collatzPath ( n -- )
+  BEGIN
+    DUP .
+    32 emit
+    DUP 1 >
+  WHILE
+    DUP 2 MOD 0 =
+    IF
+      2 /
+    ELSE
+      3 * 1 +
+    THEN
+  REPEAT
+  DROP CR ;
+
+: collatzTable ( limit -- )
+  1 DO
+    I collatzPath
+  LOOP ;
+
+11 collatzTable

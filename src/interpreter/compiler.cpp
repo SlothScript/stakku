@@ -1,13 +1,24 @@
 #include "compiler.h"
 #include "exceptions.h"
 #include "opcode.h"
+#include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <unordered_set>
 #include <vector>
 
 using namespace stakku;
+
+namespace {
+std::string toLower(const std::string &s) {
+    std::string r = s;
+    for (char &c : r)
+        c = std::tolower(c);
+    return r;
+}
+} // namespace
 
 void Compiler::emit(OpCode op) {
     if (isDefining) {
@@ -18,14 +29,15 @@ void Compiler::emit(OpCode op) {
 }
 
 bool Compiler::lookupWord(const std::string &name, size_t &offset) const {
-    auto it = wordDict.find(name);
+    std::string lower = toLower(name);
+    auto it = wordDict.find(lower);
     if (it != wordDict.end()) {
         offset = it->second;
         return true;
     }
     size_t accumulated = allDefs.size();
     for (const auto &pdef : pendingDefs) {
-        if (pdef.name == name) {
+        if (pdef.name == lower) {
             offset = accumulated;
             return true;
         }
@@ -35,15 +47,17 @@ bool Compiler::lookupWord(const std::string &name, size_t &offset) const {
 }
 
 bool Compiler::isReservedName(const std::string &name) const {
-    static const std::unordered_set<std::string> reserved = {":",    ";", "if", "else",
-                                                             "then", "(", ")"};
-    if (reserved.find(name) != reserved.end())
+    static const std::unordered_set<std::string> reserved = {
+        ":",     ";",      "if", "else", "then", "(", ")",    "begin",
+        "while", "repeat", "do", "loop", "i",    "j", "leave"};
+    std::string lower = toLower(name);
+    if (reserved.find(lower) != reserved.end())
         return true;
 
     if (isNumber(name))
         return true;
 
-    return simpleWords.find(name) != simpleWords.end();
+    return simpleWords.find(lower) != simpleWords.end();
 }
 
 bool Compiler::isNumber(const std::string &name) const {
@@ -153,6 +167,7 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
     topLevelCallPatches.clear();
     currentDefCallPatches.clear();
     currentDefJmpPatches.clear();
+    leavePatchStack.clear();
     commentDepth = 0;
     isDefining = false;
     expectName = false;
@@ -165,20 +180,22 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
         for (const Word &word : words) {
             currentWord = &word;
 
-            if (word.value == "(") {
+            std::string lower = toLower(word.value);
+
+            if (lower == "(") {
                 commentDepth++;
                 continue;
             }
-            if (word.value == ")") {
+            if (lower == ")") {
                 if (commentDepth == 0)
                     throw UnmatchedComment(word.value);
                 commentDepth--;
                 continue;
             }
-            if (word.value.empty() || commentDepth > 0)
+            if (lower.empty() || commentDepth > 0)
                 continue;
 
-            if (word.value == ":") {
+            if (lower == ":") {
                 if (isDefining)
                     throw FunctionInFunction();
                 isDefining = true;
@@ -186,16 +203,16 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
                 continue;
             }
             if (expectName) {
-                if (isReservedName(word.value)) {
+                if (isReservedName(lower)) {
                     throw StakkuException("Cannot use reserved word as a definition name: " +
                                           word.value);
                 }
-                defName = word.value;
+                defName = lower;
                 expectName = false;
                 continue;
             }
 
-            if (word.value == ";") {
+            if (lower == ";") {
                 if (!isDefining)
                     throw UnmatchedFunction();
                 if (defName.empty())
@@ -218,8 +235,8 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
 
             try {
                 size_t idx = 0;
-                double val = std::stod(word.value, &idx);
-                if (idx == word.value.size()) {
+                double val = std::stod(lower, &idx);
+                if (idx == lower.size()) {
                     emitPushNum(val);
                     continue;
                 }
@@ -228,10 +245,10 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
                 throw InvalidNumber(word.value);
             }
 
-            if (word.value == "if") {
+            if (lower == "if") {
                 patchStack.push_back(emitJmp(OpCode::OP_JMP_IF_Z));
                 continue;
-            } else if (word.value == "else") {
+            } else if (lower == "else") {
                 if (patchStack.empty())
                     throw UnmatchedControlWord(currentWord->value);
                 auto &buf = isDefining ? defBytecode : bytecode;
@@ -240,17 +257,73 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
                 patchStack.pop_back();
                 patchStack.push_back(patchPos);
                 continue;
-            } else if (word.value == "then") {
+            } else if (lower == "then") {
                 if (patchStack.empty())
                     throw UnmatchedControlWord(currentWord->value);
                 auto &buf = isDefining ? defBytecode : bytecode;
                 patchJmp(patchStack.back(), buf.size());
                 patchStack.pop_back();
                 continue;
+            } else if (lower == "do") {
+                auto &buf = isDefining ? defBytecode : bytecode;
+                emit(OpCode::OP_SWAP);
+                emit(OpCode::OP_TO_R);
+                emit(OpCode::OP_TO_R);
+                size_t loopStart = buf.size();
+                patchStack.push_back(loopStart);
+                leavePatchStack.emplace_back();
+                continue;
+            } else if (lower == "loop") {
+                if (patchStack.empty())
+                    throw UnmatchedControlWord(currentWord->value);
+                size_t loopStart = patchStack.back();
+                patchStack.pop_back();
+                size_t loopOpPos = emitJmp(OpCode::OP_LOOP);
+                patchJmp(loopOpPos, loopStart);
+                if (!leavePatchStack.empty()) {
+                    for (size_t pos : leavePatchStack.back())
+                        patchJmp(pos, loopOpPos + 2);
+                    leavePatchStack.pop_back();
+                }
+                continue;
+            } else if (lower == "i") {
+                emit(OpCode::OP_FETCH_R);
+                continue;
+            } else if (lower == "j") {
+                emit(OpCode::OP_J);
+                continue;
+            } else if (lower == "leave") {
+                if (leavePatchStack.empty())
+                    throw StakkuException("'leave' used outside of do..loop");
+                emit(OpCode::OP_FROM_R);
+                emit(OpCode::OP_DROP);
+                emit(OpCode::OP_FROM_R);
+                emit(OpCode::OP_DROP);
+                leavePatchStack.back().push_back(emitJmp(OpCode::OP_JMP));
+                continue;
+            } else if (lower == "begin") {
+                auto &buf = isDefining ? defBytecode : bytecode;
+                patchStack.push_back(buf.size());
+                continue;
+            } else if (lower == "while") {
+                patchStack.push_back(emitJmp(OpCode::OP_JMP_IF_Z));
+                continue;
+            } else if (lower == "repeat") {
+                if (patchStack.size() < 2)
+                    throw UnmatchedControlWord(currentWord->value);
+                auto &buf = isDefining ? defBytecode : bytecode;
+                size_t whilePatch = patchStack.back();
+                patchStack.pop_back();
+                size_t beginPos = patchStack.back();
+                patchStack.pop_back();
+                emitJmp(OpCode::OP_JMP);
+                patchJmp(buf.size() - 2, beginPos);
+                patchJmp(whilePatch, buf.size());
+                continue;
             }
 
             size_t offset = 0;
-            if (lookupWord(word.value, offset)) {
+            if (lookupWord(lower, offset)) {
                 emit(OpCode::OP_CALL);
                 auto &buf = isDefining ? defBytecode : bytecode;
                 size_t opPos = buf.size();
@@ -262,7 +335,7 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
                 continue;
             }
 
-            auto it2 = simpleWords.find(word.value);
+            auto it2 = simpleWords.find(lower);
             if (it2 != simpleWords.end()) {
                 emit(it2->second);
             } else {
@@ -277,11 +350,12 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
             throw UnmatchedComment("(");
 
         for (const auto &pdef : pendingDefs) {
-            if (wordDict.find(pdef.name) != wordDict.end()) {
+            std::string lowerName = toLower(pdef.name);
+            if (wordDict.find(lowerName) != wordDict.end()) {
                 throw StakkuException("Duplicate definition: " + pdef.name);
             }
             for (const auto &other : pendingDefs) {
-                if (&other != &pdef && other.name == pdef.name) {
+                if (&other != &pdef && toLower(other.name) == lowerName) {
                     throw StakkuException("Duplicate definition: " + pdef.name);
                 }
             }
@@ -289,7 +363,7 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
 
         for (auto &pdef : pendingDefs) {
             size_t wordStart = allDefs.size();
-            wordDict.insert({pdef.name, wordStart});
+            wordDict.insert({toLower(pdef.name), wordStart});
             for (auto &[localPos, target] : pdef.callPatches)
                 defsCallPatches.push_back({wordStart + localPos, target});
             for (auto &[localPos, target] : pdef.jmpPatches)

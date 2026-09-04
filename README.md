@@ -47,7 +47,7 @@ $ stakku 4 6 + .
 Run a file:
 
 ```text
-$ stakku example.stku
+$ stakku examples/example.stku
 ```
 
 ```txt
@@ -107,19 +107,17 @@ bye             quit
 
 ## Supported words
 
-| Category             | Words                    |
-| -------------------- | ------------------------ |
-| Arithmetic           | `+ - * /`                |
-| Comparison / logical | `= < > <= >= <>`         |
-| Bitwise              | `and or xor invert`      |
-| Stack                | `dup drop swap over rot` |
-| Output               | `. emit cr`              |
-| Control flow         | `if else then`           |
-| Definitions          | `: name ... ;`           |
+| Category       | Words                    |
+| -------------- | ------------------------ |
+| Arithmetic     | `+ - * / mod`            |
+| Comparison     | `= < > <= >= <>`         |
+| Bitwise        | `and or xor invert`      |
+| Stack          | `dup drop swap over rot` |
+| Return stack   | `>r r> r@`               |
+| Output         | `. emit cr clear`        |
+| Loop (counted) | `do loop i j leave`      |
+| Loop (general) | `begin while repeat`     |
+| Control flow   | `if else then`           |
+| Definitions    | `: name ... ;`           |
 
-Numbers are represented as doubles. Comparisons leave `1` for true and `0` for false; `if` treats a nonzero value as true.
-
-## Current Status
-
-Currently, `stakku` is a WIP. It has a bytecode compiler and VM, with functions, comparisons, and logic, but does not yet provide the full Forth feature set.
-Planned areas include loops, memory access (`@`, `!`), and a broader standard word set.
+Numbers are represented as doubles. Comparisons leave `-1` for true and `0` for false; `if` treats a nonzero value as true.

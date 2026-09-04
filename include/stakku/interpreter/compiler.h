@@ -63,6 +63,8 @@ class Compiler {
     std::vector<std::pair<size_t, size_t>>
         currentDefJmpPatches; // {patchPos, target} relative to defBytecode
 
+    std::vector<std::vector<size_t>> leavePatchStack;
+
     struct PendingDef {
         std::string name;
         std::vector<uint8_t> bytecode;
@@ -83,6 +85,8 @@ class Compiler {
 
         {"and", OpCode::OP_AND},     {"or", OpCode::OP_OR},     {"xor", OpCode::OP_XOR},
         {"invert", OpCode::OP_NOT},
+
+        {">r", OpCode::OP_TO_R},     {"r>", OpCode::OP_FROM_R}, {"r@", OpCode::OP_FETCH_R},
 
         {"dup", OpCode::OP_DUP},     {"drop", OpCode::OP_DROP}, {"swap", OpCode::OP_SWAP},
         {"over", OpCode::OP_OVER},   {"rot", OpCode::OP_ROT},

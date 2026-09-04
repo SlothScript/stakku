@@ -56,6 +56,62 @@ TEST_CASE("Advanced: error conditions", "[advanced]") {
     REQUIRE(compiler.compile(unmatched_fn).empty());
 }
 
+TEST_CASE("Advanced: do..loop basic iteration", "[advanced]") {
+    stakku::Compiler compiler;
+    stakku::VM vm;
+
+    // sum 0..4 = 10
+    auto s =
+        compileRun(compiler, vm,
+                   {stakku::Word("0"), stakku::Word("5"), stakku::Word("0"), stakku::Word("do"),
+                    stakku::Word("i"), stakku::Word("+"), stakku::Word("loop")});
+    REQUIRE(s.peek(0) == 10.0);
+    REQUIRE(s.size() == 1);
+}
+
+TEST_CASE("Advanced: do..loop with leave", "[advanced]") {
+    stakku::Compiler compiler;
+    stakku::VM vm;
+
+    // sum 0,1,2 then leave at 3
+    auto s =
+        compileRun(compiler, vm,
+                   {stakku::Word("0"), stakku::Word("5"), stakku::Word("0"), stakku::Word("do"),
+                    stakku::Word("i"), stakku::Word("3"), stakku::Word("="), stakku::Word("if"),
+                    stakku::Word("leave"), stakku::Word("then"), stakku::Word("i"),
+                    stakku::Word("+"), stakku::Word("loop")});
+    REQUIRE(s.peek(0) == 3.0);
+    REQUIRE(s.size() == 1);
+}
+
+TEST_CASE("Advanced: begin..while..repeat loop", "[advanced]") {
+    stakku::Compiler compiler;
+    stakku::VM vm;
+
+    // 0 begin dup 5 < while 1 + repeat -> counts up to 5
+    auto s = compileRun(compiler, vm,
+                        {stakku::Word("0"), stakku::Word("begin"), stakku::Word("dup"),
+                         stakku::Word("5"), stakku::Word("<"), stakku::Word("while"),
+                         stakku::Word("1"), stakku::Word("+"), stakku::Word("repeat")});
+    REQUIRE(s.peek(0) == 5.0);
+    REQUIRE(s.size() == 1);
+}
+
+TEST_CASE("Advanced: nested do..loop with j", "[advanced]") {
+    stakku::Compiler compiler;
+    stakku::VM vm;
+
+    // outer 0..2, inner 0..3, sum i+j
+    auto s =
+        compileRun(compiler, vm,
+                   {stakku::Word("0"), stakku::Word("2"), stakku::Word("0"), stakku::Word("do"),
+                    stakku::Word("3"), stakku::Word("0"), stakku::Word("do"), stakku::Word("i"),
+                    stakku::Word("j"), stakku::Word("+"), stakku::Word("+"), stakku::Word("loop"),
+                    stakku::Word("loop")});
+    REQUIRE(s.peek(0) == 9.0);
+    REQUIRE(s.size() == 1);
+}
+
 TEST_CASE("Advanced: stack edge cases", "[advanced]") {
     stakku::VM vm;
     stakku::Compiler compiler;

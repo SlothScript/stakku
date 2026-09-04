@@ -4,8 +4,8 @@
 #include <cmath>
 #include <csignal>
 #include <cstdint>
-#include <functional>
 #include <iostream>
+#include <cstring>
 
 using namespace stakku;
 
@@ -20,6 +20,7 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
     hadOutput_ = false;
     halted_ = false;
     returnStack.clear();
+    rStack.clear();
     running = true;
     stack.clear();
     if (!initialStack.empty()) {
@@ -144,6 +145,25 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
             break;
         case OpCode::OP_RETURN:
             call_return(ops);
+            break;
+        case OpCode::OP_TO_R:
+            to_r();
+            pc++;
+            break;
+        case OpCode::OP_FROM_R:
+            from_r();
+            pc++;
+            break;
+        case OpCode::OP_FETCH_R:
+            fetch_r();
+            pc++;
+            break;
+        case OpCode::OP_LOOP:
+            loop(ops);
+            break;
+        case OpCode::OP_J:
+            j_index();
+            pc++;
             break;
         default:
             throw StakkuException("Unknown opcode: 0x" + toHex(static_cast<uint8_t>(op)) +
@@ -488,4 +508,53 @@ void VM::call_return(const std::vector<uint8_t> &bytecode) {
         throw StackUnderflow();
     pc = returnStack.back();
     returnStack.pop_back();
+}
+
+void VM::to_r() {
+    if (stack.empty()) {
+        throw StackUnderflow();
+    }
+    rStack.push(stack.pop());
+}
+
+void VM::from_r() {
+    if (rStack.empty()) {
+        throw StackUnderflow();
+    }
+    stack.push(rStack.pop());
+}
+
+void VM::fetch_r() {
+    if (rStack.empty()) {
+        throw StackUnderflow();
+    }
+    stack.push(rStack.peek());
+}
+
+void VM::loop(const std::vector<uint8_t> &bytecode) {
+    if (rStack.size() < 2) {
+        throw StackUnderflow();
+    }
+
+    double index = rStack.pop();
+    index++;
+    double limit = rStack.peek();
+
+    if (index < limit) {
+        rStack.push(index);
+        checkBounds(bytecode, pc + 1, 2);
+        uint16_t jumpAddr;
+        std::memcpy(&jumpAddr, &bytecode[pc + 1], sizeof(uint16_t));
+        pc = jumpAddr;
+    } else {
+        rStack.pop();
+        pc += 3;
+    }
+}
+
+void VM::j_index() {
+    if (rStack.size() < 3) {
+        throw StakkuException("No outer loop index to fetch (OP_J)");
+    }
+    stack.push(rStack.peek(2));
 }
