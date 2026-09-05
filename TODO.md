@@ -4,7 +4,6 @@
 
 ### Language features
 
-- [ ] Memory access (`@` fetch, `!` store)
 - [ ] Additional standard Forth words
 
 ### Runtime and tooling

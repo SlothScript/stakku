@@ -1,8 +1,9 @@
+
 # stakku
 
-A less simple RPN calculator with some Forth-like elements.
+A small Forth-like stack-based programming language.
 
-stakku is a work-in-progress RPN interpreter with a bytecode compiler, virtual machine, command-line execution, and an interactive REPL.
+`stakku` is a semi-complete RPN language with a bytecode compiler, VM, command-line execution, and an interactive REPL.
 
 ## Installation
 
@@ -114,10 +115,12 @@ bye             quit
 | Bitwise        | `and or xor invert`      |
 | Stack          | `dup drop swap over rot` |
 | Return stack   | `>r r> r@`               |
-| Output         | `. emit cr clear`        |
+| Output         | `. emit eemit cr clear`  |
+| Memory         | `@ !`                    |
 | Loop (counted) | `do loop i j leave`      |
 | Loop (general) | `begin while repeat`     |
 | Control flow   | `if else then`           |
 | Definitions    | `: name ... ;`           |
+| Variables      | `variable`               |
 
 Numbers are represented as doubles. Comparisons leave `-1` for true and `0` for false; `if` treats a nonzero value as true.
