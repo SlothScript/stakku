@@ -1,0 +1,322 @@
+\ Originally written by Claude Sonnet 5
+\ Ported to ppm format with ChatGPT
+
+\ ============================================================
+\ Color PPM raytracer for stakku
+\ Scene: one semi-reflective sphere, one mirror sphere,
+\        a checkerboard floor, single point light,
+\        multi-bounce reflections.
+\ Outputs PPM image to stdout. Run with:
+\   stakku raytracer_ppm.stku > output.ppm
+\ ============================================================
+
+\ ============================================================
+\ CONFIG
+\ ============================================================
+variable WIDTH_V variable HEIGHT_V variable MAX_BOUNCES
+480 WIDTH_V !
+270 HEIGHT_V !
+8 MAX_BOUNCES !
+
+variable S1X variable S1Y variable S1Z variable S1R
+variable S2X variable S2Y variable S2Z variable S2R
+variable FLOOR_Y
+variable LDX variable LDY variable LDZ
+
+-1.0 S1X ! 0.0 S1Y ! -4.0 S1Z ! 1.0 S1R !
+1.2 S2X ! -0.2 S2Y ! -3.0 S2Z ! 0.7 S2R !
+-1.0 FLOOR_Y !
+1 LDX ! 1 LDY ! 0.3 LDZ !
+\ ============================================================
+
+\ ---------- sqrt (Newton's method) ----------
+variable N variable G
+: sqrt ( n -- root )
+  N ! N @ 2 / G !
+  10 0 do N @ G @ / G @ + 2 / G ! loop G @
+;
+
+\ ---------- floor ----------
+: floor ( x -- floor(x) )
+  dup 1 mod -
+;
+
+\ ---------- clamp ----------
+: clamp01 ( x -- x' )
+  dup 0 < if drop 0 then
+  dup 1 > if drop 1 then
+;
+
+\ ---------- checkerboard ----------
+: checker ( x z -- 0/1 )
+  floor swap floor +
+  2 mod 0 =
+  if 1 else 0 then
+;
+
+\ ---------- camera ----------
+variable ASPECT
+variable UU variable VV
+WIDTH_V @ HEIGHT_V @ / ASPECT !
+
+\ ---------- ray state ----------
+variable OX variable OY variable OZ
+variable DX variable DY variable DZ
+
+\ ---------- sphere-hit scratch ----------
+variable CX variable CY variable CZ variable RAD
+variable LX variable LY variable LZ
+variable TCA variable D2 variable THC
+variable HIT_T variable HIT_FLAG
+
+\ ---------- closest-hit ----------
+variable BEST_T variable BEST_OBJ
+variable HX variable HY variable HZ
+variable NX variable NY variable NZ
+variable LEN variable RDOT
+variable RHX variable RHZ
+variable IDX
+
+\ ---------- color output ----------
+variable PR variable PG variable PB
+
+\ ---------- bounce accumulators ----------
+variable ACC_R variable ACC_G variable ACC_B variable REFL
+
+: normalizeD ( -- )
+  DX @ DX @ * DY @ DY @ * + DZ @ DZ @ * + sqrt LEN !
+  LEN @ 0 = if
+  else
+    DX @ LEN @ / DX !
+    DY @ LEN @ / DY !
+    DZ @ LEN @ / DZ !
+  then
+;
+
+: sphereHit ( -- )
+  CX @ OX @ - LX !
+  CY @ OY @ - LY !
+  CZ @ OZ @ - LZ !
+  LX @ DX @ * LY @ DY @ * + LZ @ DZ @ * + TCA !
+  TCA @ 0 < if
+    0 HIT_FLAG !
+  else
+    LX @ LX @ * LY @ LY @ * + LZ @ LZ @ * + TCA @ TCA @ * - D2 !
+    RAD @ RAD @ * D2 @ < if
+      0 HIT_FLAG !
+    else
+      RAD @ RAD @ * D2 @ - sqrt THC !
+      TCA @ THC @ - HIT_T !
+      HIT_T @ 0 > if
+        -1 HIT_FLAG !
+      else
+        0 HIT_FLAG !
+      then
+    then
+  then
+;
+
+: floorHit ( -- )
+  DY @ -0.0001 < if
+    FLOOR_Y @ OY @ - DY @ / HIT_T !
+    HIT_T @ 0 > if -1 HIT_FLAG ! else 0 HIT_FLAG ! then
+  else
+    0 HIT_FLAG !
+  then
+;
+
+: findClosest ( -- )
+  999999 BEST_T !
+  0 BEST_OBJ !
+
+  S1X @ CX ! S1Y @ CY ! S1Z @ CZ ! S1R @ RAD !
+  sphereHit
+  HIT_FLAG @ -1 = if
+    HIT_T @ BEST_T @ < if
+      HIT_T @ BEST_T !
+      1 BEST_OBJ !
+    then
+  then
+
+  S2X @ CX ! S2Y @ CY ! S2Z @ CZ ! S2R @ RAD !
+  sphereHit
+  HIT_FLAG @ -1 = if
+    HIT_T @ BEST_T @ < if
+      HIT_T @ BEST_T !
+      2 BEST_OBJ !
+    then
+  then
+
+  floorHit
+  HIT_FLAG @ -1 = if
+    HIT_T @ BEST_T @ < if
+      HIT_T @ BEST_T !
+      3 BEST_OBJ !
+    then
+  then
+;
+
+: computeHitPoint ( -- )
+  OX @ BEST_T @ DX @ * + HX !
+  OY @ BEST_T @ DY @ * + HY !
+  OZ @ BEST_T @ DZ @ * + HZ !
+;
+
+: sphereNormal ( -- )
+  HX @ CX @ - RAD @ / NX !
+  HY @ CY @ - RAD @ / NY !
+  HZ @ CZ @ - RAD @ / NZ !
+;
+
+: diffuseShade ( -- br )
+  NX @ LDX @ * NY @ LDY @ * + NZ @ LDZ @ * +
+  dup 0 < if drop 0 then
+  0.15 +
+  clamp01
+;
+
+: reflectDir ( -- )
+  DX @ NX @ * DY @ NY @ * + DZ @ NZ @ * + 2 * RDOT !
+  DX @ RDOT @ NX @ * - DX !
+  DY @ RDOT @ NY @ * - DY !
+  DZ @ RDOT @ NZ @ * - DZ !
+;
+
+\ shadePixel sets PR PG PB for the current pixel
+: shadePixel ( -- )
+  0 ACC_R ! 0 ACC_G ! 0 ACC_B !
+  1.0 REFL !
+
+  MAX_BOUNCES @ 0 do
+    findClosest
+
+    BEST_OBJ @ 0 = if
+      DY @ 0 > if
+        DY @ 0.15 * 0.05 +
+      else
+        0.05
+      then
+      REFL @ * dup 0.4 * ACC_R @ + ACC_R !
+      dup 0.6 * ACC_G @ + ACC_G !
+      1.0 * ACC_B @ + ACC_B !
+      0 REFL !
+    then
+
+    BEST_OBJ @ 1 = if
+      computeHitPoint
+      S1X @ CX ! S1Y @ CY ! S1Z @ CZ ! S1R @ RAD !
+      sphereNormal
+      diffuseShade
+      dup 0.55 * REFL @ * ACC_R @ + ACC_R !
+      dup 0.2 * REFL @ * ACC_G @ + ACC_G !
+      dup 0.3 * REFL @ * ACC_B @ + ACC_B !
+      0.45 * REFL @ * REFL !
+      HX @ NX @ 0.001 * + OX !
+      HY @ NY @ 0.001 * + OY !
+      HZ @ NZ @ 0.001 * + OZ !
+      reflectDir
+    then
+
+    BEST_OBJ @ 2 = if
+      computeHitPoint
+      S2X @ CX ! S2Y @ CY ! S2Z @ CZ ! S2R @ RAD !
+      sphereNormal
+      diffuseShade
+      dup 0.85 * REFL @ * ACC_R @ + ACC_R !
+      dup 0.2 * REFL @ * ACC_G @ + ACC_G !
+      dup 0.2 * REFL @ * ACC_B @ + ACC_B !
+      0.15 * REFL @ * REFL !
+      HX @ NX @ 0.001 * + OX !
+      HY @ NY @ 0.001 * + OY !
+      HZ @ NZ @ 0.001 * + OZ !
+      reflectDir
+    then
+
+    BEST_OBJ @ 3 = if
+      computeHitPoint
+      HX @ HZ @ checker
+      if
+        0.75
+      else
+        0.3
+      then
+      REFL @ * dup 0.6 * ACC_R @ + ACC_R !
+      dup 0.4 * ACC_G @ + ACC_G !
+      dup 0.3 * ACC_B @ + ACC_B !
+      0 REFL !
+    then
+
+    BEST_OBJ @ 0 = if leave then
+    BEST_OBJ @ 3 = if leave then
+    REFL @ 0.01 < if leave then
+  loop
+
+  ACC_R @ clamp01 PR !
+  ACC_G @ clamp01 PG !
+  ACC_B @ clamp01 PB !
+;
+
+\ emitNum writes a number to stdout (0-255)
+: emitNum ( n -- )
+  dup 100 / floor 48 + emit
+  dup 100 mod 10 / floor 48 + emit
+  10 mod 48 + emit
+;
+
+\ emitColor writes "R G B " for a pixel
+: emitColor ( -- )
+  PR @ 255.0 * 0.5 + floor emitNum
+  32 emit
+  PG @ 255.0 * 0.5 + floor emitNum
+  32 emit
+  PB @ 255.0 * 0.5 + floor emitNum
+  32 emit
+;
+
+\ emitProgress shows current line progress (to stderr)
+: eemitNum ( n -- )
+  dup 100 / floor 48 + eemit
+  dup 100 mod 10 / floor 48 + eemit
+  10 mod 48 + eemit
+;
+
+: emitProgress ( line -- )
+  80 eemit 114 eemit 111 eemit 103 eemit 114 eemit 101 eemit 115 eemit 115 eemit 58 eemit 32 eemit
+  dup 100 * HEIGHT_V @ / eemitNum
+  37 eemit 32 eemit
+  40 eemit
+  dup eemitNum
+  47 eemit
+  HEIGHT_V @ eemitNum
+  41 eemit
+  10 eemit
+  drop
+;
+
+: render ( -- )
+  80 emit 51 emit cr
+  WIDTH_V @ emitNum 32 emit HEIGHT_V @ emitNum cr
+  255 emitNum cr
+  HEIGHT_V @ 0 do
+    i emitProgress
+    WIDTH_V @ 0 do
+      i 0.5 + 2 * WIDTH_V @ / 1 - ASPECT @ * UU !
+      1 j 0.5 + 2 * HEIGHT_V @ / - VV !
+      0 OX ! 0 OY ! 0 OZ !
+      UU @ DX ! VV @ DY ! -1 DZ !
+      normalizeD
+      findClosest
+      shadePixel
+      emitColor
+    loop
+  loop
+  13 emit
+  35 emit 32 emit 82 emit 69 emit 68 emit 65 emit 89 emit 32 emit 79 emit 75 emit 33 emit cr
+;
+
+LDX @ LDX @ * LDY @ LDY @ * + LDZ @ LDZ @ * + sqrt LEN !
+LDX @ LEN @ / LDX !
+LDY @ LEN @ / LDY !
+LDZ @ LEN @ / LDZ !
+
+render

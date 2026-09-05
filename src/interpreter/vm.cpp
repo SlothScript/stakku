@@ -132,6 +132,10 @@ void VM::execute(const std::vector<uint8_t> &ops, const std::string &initialStac
             emit();
             pc++;
             break;
+        case OpCode::OP_EEMIT:
+            eemit();
+            pc++;
+            break;
         case OpCode::OP_CR:
             cr();
             pc++;
@@ -271,6 +275,10 @@ void VM::div_() {
 }
 
 void VM::mod() {
+    if (stack.size() < 2) {
+        throw StackUnderflow();
+    }
+
     double b = stack.pop();
     if (b == 0) {
         throw DivideByZero();
@@ -350,12 +358,20 @@ void VM::and_() {
 
     double b = stack.pop();
     double a = stack.pop();
-    int64_t ia = static_cast<int64_t>(a);
-    int64_t ib = static_cast<int64_t>(b);
-    if (std::isnan(a))
+    int64_t ia;
+    int64_t ib;
+    if (std::isinf(a))
+        ia = INT64_MAX;
+    else if (std::isnan(a))
         ia = 0;
-    if (std::isnan(b))
+    else
+        ia = static_cast<int64_t>(a);
+    if (std::isinf(b))
+        ib = INT64_MAX;
+    else if (std::isnan(b))
         ib = 0;
+    else
+        ib = static_cast<int64_t>(b);
     stack.push(static_cast<double>(ia & ib));
 }
 
@@ -366,16 +382,20 @@ void VM::or_() {
 
     double b = stack.pop();
     double a = stack.pop();
-    int64_t ia = static_cast<int64_t>(a);
-    int64_t ib = static_cast<int64_t>(b);
+    int64_t ia;
+    int64_t ib;
     if (std::isinf(a))
         ia = INT64_MAX;
+    else if (std::isnan(a))
+        ia = 0;
+    else
+        ia = static_cast<int64_t>(a);
     if (std::isinf(b))
         ib = INT64_MAX;
-    if (std::isnan(a))
-        ia = 0;
-    if (std::isnan(b))
+    else if (std::isnan(b))
         ib = 0;
+    else
+        ib = static_cast<int64_t>(b);
     stack.push(static_cast<double>(ia | ib));
 }
 
@@ -386,16 +406,20 @@ void VM::xor_() {
 
     double b = stack.pop();
     double a = stack.pop();
-    int64_t ia = static_cast<int64_t>(a);
-    int64_t ib = static_cast<int64_t>(b);
+    int64_t ia;
+    int64_t ib;
     if (std::isinf(a))
         ia = INT64_MAX;
+    else if (std::isnan(a))
+        ia = 0;
+    else
+        ia = static_cast<int64_t>(a);
     if (std::isinf(b))
         ib = INT64_MAX;
-    if (std::isnan(a))
-        ia = 0;
-    if (std::isnan(b))
+    else if (std::isnan(b))
         ib = 0;
+    else
+        ib = static_cast<int64_t>(b);
     stack.push(static_cast<double>(ia ^ ib));
 }
 
@@ -405,11 +429,13 @@ void VM::not_() {
     }
 
     double a = stack.pop();
-    int64_t ia = static_cast<int64_t>(a);
-    if (std::isnan(a))
-        ia = 0;
+    int64_t ia;
     if (std::isinf(a))
         ia = INT64_MAX;
+    else if (std::isnan(a))
+        ia = 0;
+    else
+        ia = static_cast<int64_t>(a);
     stack.push(static_cast<double>(~ia));
 }
 
@@ -469,18 +495,36 @@ void VM::rot() {
 }
 
 void VM::print() {
+    if (stack.empty()) {
+        throw StackUnderflow();
+    }
     double val = stack.pop();
     hadOutput_ = true;
     std::cout << val;
 }
 
 void VM::emit() {
+    if (stack.empty()) {
+        throw StackUnderflow();
+    }
     double val = stack.pop();
     if (val < 0 || val > 255) {
         throw OutOfRange("emit value must be in range 0-255, got: " + std::to_string(val));
     }
     hadOutput_ = true;
     std::cout << static_cast<char>(val);
+}
+
+void VM::eemit() {
+    if (stack.empty()) {
+        throw StackUnderflow();
+    }
+    double val = stack.pop();
+    if (val < 0 || val > 255) {
+        throw OutOfRange("eemit value must be in range 0-255, got: " + std::to_string(val));
+    }
+    hadOutput_ = true;
+    std::cerr << static_cast<char>(val);
 }
 
 void VM::cr() {

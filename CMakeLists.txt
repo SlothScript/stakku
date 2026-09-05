@@ -15,6 +15,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(ZIG_CXX)
+    set(CMAKE_CXX_LINK_EXECUTABLE "\"${ZIG_CXX}\" <FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+endif()
+
 set(INTERP_SOURCES
     src/interpreter/compiler.cpp
     src/interpreter/vm.cpp

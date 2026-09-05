@@ -43,6 +43,7 @@ enum class OpCode : uint8_t {
 
     OP_PRINT,
     OP_EMIT,
+    OP_EEMIT,
     OP_CR,
 
     OP_JMP,
@@ -89,11 +90,12 @@ enum class OpCode : uint8_t {
 // 0x1C   OP_ROT      xyz -> yzx
 // 0x1D   OP_PRINT    Pop 1, print
 // 0x1E   OP_EMIT     Pop 1, print as ASCII
-// 0x1F   OP_CR       Print a newline
-// 0x20   OP_JMP      Unconditional jump to unsigned 16 bit addr
-// 0x21   OP_JMP_IF_Z Jump to u16 addr if 0
-// 0x22   OP_CALL     Push return addr to call stack, jump to word's addr
-// 0x23   OP_RETURN   Return from word
-// 0x24   OP_CLEAR    Clear the stack
-// 0x25   OP_BYE      Stop the program (alias for HALT)
-// 0x26   OP_ALLOC    Allocate N memory cells (u16 operand)
+// 0x1F   OP_EEMIT    Pop 1, print as ASCII to stderr
+// 0x20   OP_CR       Print a newline
+// 0x21   OP_JMP      Unconditional jump to unsigned 16 bit addr
+// 0x22   OP_JMP_IF_Z Jump to u16 addr if 0
+// 0x23   OP_CALL     Push return addr to call stack, jump to word's addr
+// 0x24   OP_RETURN   Return from word
+// 0x25   OP_CLEAR    Clear the stack
+// 0x26   OP_BYE      Stop the program (alias for HALT)
+// 0x27   OP_ALLOC    Allocate N memory cells (u16 operand)

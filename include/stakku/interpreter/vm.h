@@ -72,6 +72,7 @@ class VM {
     void rot();
     void print();
     void emit();
+    void eemit();
     void cr();
     void clear();
     void jmp(const std::vector<uint8_t> &bytecode);

@@ -83,24 +83,24 @@ class Compiler {
     const std::unordered_map<std::string, OpCode> simpleWords = {
         {"bye", OpCode::OP_BYE},
 
-        {"!", OpCode::OP_STORE},     {"@", OpCode::OP_FETCH},
+        {"!", OpCode::OP_STORE},    {"@", OpCode::OP_FETCH},
 
-        {"+", OpCode::OP_ADD},       {"-", OpCode::OP_SUB},     {"*", OpCode::OP_MUL},
-        {"/", OpCode::OP_DIV},       {"mod", OpCode::OP_MOD},
+        {"+", OpCode::OP_ADD},      {"-", OpCode::OP_SUB},       {"*", OpCode::OP_MUL},
+        {"/", OpCode::OP_DIV},      {"mod", OpCode::OP_MOD},
 
-        {"=", OpCode::OP_EQ},        {"<", OpCode::OP_LT},      {">", OpCode::OP_GT},
-        {"<=", OpCode::OP_LE},       {">=", OpCode::OP_GE},     {"<>", OpCode::OP_NEQ},
+        {"=", OpCode::OP_EQ},       {"<", OpCode::OP_LT},        {">", OpCode::OP_GT},
+        {"<=", OpCode::OP_LE},      {">=", OpCode::OP_GE},       {"<>", OpCode::OP_NEQ},
 
-        {"and", OpCode::OP_AND},     {"or", OpCode::OP_OR},     {"xor", OpCode::OP_XOR},
+        {"and", OpCode::OP_AND},    {"or", OpCode::OP_OR},       {"xor", OpCode::OP_XOR},
         {"invert", OpCode::OP_NOT},
 
-        {">r", OpCode::OP_TO_R},     {"r>", OpCode::OP_FROM_R}, {"r@", OpCode::OP_FETCH_R},
+        {">r", OpCode::OP_TO_R},    {"r>", OpCode::OP_FROM_R},   {"r@", OpCode::OP_FETCH_R},
 
-        {"dup", OpCode::OP_DUP},     {"drop", OpCode::OP_DROP}, {"swap", OpCode::OP_SWAP},
-        {"over", OpCode::OP_OVER},   {"rot", OpCode::OP_ROT},
+        {"dup", OpCode::OP_DUP},    {"drop", OpCode::OP_DROP},   {"swap", OpCode::OP_SWAP},
+        {"over", OpCode::OP_OVER},  {"rot", OpCode::OP_ROT},
 
-        {".", OpCode::OP_PRINT},     {"emit", OpCode::OP_EMIT}, {"cr", OpCode::OP_CR},
-        {"clear", OpCode::OP_CLEAR},
+        {".", OpCode::OP_PRINT},    {"emit", OpCode::OP_EMIT},   {"eemit", OpCode::OP_EEMIT},
+        {"cr", OpCode::OP_CR},      {"clear", OpCode::OP_CLEAR},
     };
 };
 
