@@ -159,9 +159,7 @@ void Compiler::parseStakkuError(const StakkuException &e, const Word &word,
               << std::string(word.value.size(), '^') << " " << e.what() << std::endl;
 }
 
-// Should probably be refactored into more functions, but it (maybe) works so I'm not going to touch
-// it
-std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
+void Compiler::resetCompilationState() {
     bytecode.clear();
     patchStack.clear();
     topLevelCallPatches.clear();
@@ -175,9 +173,271 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
     defName.clear();
     defBytecode.clear();
     pendingDefs.clear();
-    variables.clear();
-    nextMemAddr = 0;
+}
 
+bool Compiler::processComment(std::string word, Word _word) {
+    if (word == "(") {
+        commentDepth++;
+        return true;
+    }
+    if (word == ")") {
+        if (commentDepth == 0)
+            throw UnmatchedComment(_word.value);
+        commentDepth--;
+        return true;
+    }
+    if (word.empty() || commentDepth > 0)
+        return true;
+
+    return false;
+}
+
+bool Compiler::processDefState(std::string word, Word _word) {
+    if (word == ":") {
+        if (isDefining)
+            throw FunctionInFunction();
+        isDefining = true;
+        expectName = true;
+        return true;
+    }
+    if (expectName) {
+        if (isReservedName(word)) {
+            throw StakkuException("Cannot use reserved word as a definition name: " + _word.value);
+        }
+        defName = word;
+        expectName = false;
+        return true;
+    }
+
+    if (word == ";") {
+        if (!isDefining)
+            throw UnmatchedFunction();
+        if (defName.empty())
+            throw UnnamedFunction();
+        if (!patchStack.empty())
+            throw UnmatchedControlWord(_word.value);
+
+        defBytecode.push_back(static_cast<uint8_t>(OpCode::OP_RETURN));
+
+        pendingDefs.push_back({defName, defBytecode, currentDefCallPatches, currentDefJmpPatches});
+        currentDefCallPatches.clear();
+        currentDefJmpPatches.clear();
+
+        defBytecode.clear();
+        defName.clear();
+        isDefining = false;
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::processVarState(std::string word, Word _word) {
+    if (word == "variable") {
+        expectVariable = true;
+        return true;
+    }
+
+    if (expectVariable) {
+        if (isReservedName(word)) {
+            throw StakkuException("Cannot use reserved word as a variable name: " + _word.value);
+        }
+
+        size_t addr = nextMemAddr++;
+        variables[word] = addr;
+        expectVariable = false;
+        return true;
+    }
+
+    auto it = variables.find(word);
+    if (it != variables.end()) {
+        emitPushNum(it->second);
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::processValue(std::string word, Word _word) {
+    try {
+        size_t idx = 0;
+        double val = std::stod(word, &idx);
+        if (idx == word.size()) {
+            emitPushNum(val);
+            return true;
+        }
+    } catch (const std::invalid_argument &) {
+    } catch (const std::out_of_range &) {
+        throw InvalidNumber(_word.value);
+    }
+
+    return false;
+}
+
+bool Compiler::processKnownWord(std::string word, Word _word) {
+    size_t offset = 0;
+    if (lookupWord(word, offset)) {
+        emit(OpCode::OP_CALL);
+        auto &buf = isDefining ? defBytecode : bytecode;
+        size_t opPos = buf.size();
+        buf.insert(buf.end(), sizeof(uint16_t), 0);
+        if (isDefining)
+            currentDefCallPatches.push_back({opPos, offset});
+        else
+            topLevelCallPatches.push_back({opPos, offset});
+        return true;
+    }
+
+    auto it2 = simpleWords.find(word);
+    if (it2 != simpleWords.end()) {
+        emit(it2->second);
+        return true;
+    } else {
+        throw UnknownWord(_word.value);
+    }
+}
+
+bool Compiler::compileConditional(std::string word, Word _word) {
+    if (word == "if") {
+        patchStack.push_back(emitJmp(OpCode::OP_JMP_IF_Z));
+        return true;
+    } else if (word == "else") {
+        if (patchStack.empty())
+            throw UnmatchedControlWord(_word.value);
+        auto &buf = isDefining ? defBytecode : bytecode;
+        size_t patchPos = emitJmp(OpCode::OP_JMP);
+        patchJmp(patchStack.back(), buf.size());
+        patchStack.pop_back();
+        patchStack.push_back(patchPos);
+        return true;
+    } else if (word == "then") {
+        if (patchStack.empty())
+            throw UnmatchedControlWord(_word.value);
+        auto &buf = isDefining ? defBytecode : bytecode;
+        patchJmp(patchStack.back(), buf.size());
+        patchStack.pop_back();
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::compileCountedLoop(std::string word, Word _word) {
+    if (word == "do") {
+        auto &buf = isDefining ? defBytecode : bytecode;
+        emit(OpCode::OP_SWAP);
+        emit(OpCode::OP_TO_R);
+        emit(OpCode::OP_TO_R);
+        size_t loopStart = buf.size();
+        patchStack.push_back(loopStart);
+        leavePatchStack.emplace_back();
+        return true;
+    } else if (word == "loop") {
+        if (patchStack.empty())
+            throw UnmatchedControlWord(_word.value);
+        size_t loopStart = patchStack.back();
+        patchStack.pop_back();
+        size_t loopOpPos = emitJmp(OpCode::OP_LOOP);
+        patchJmp(loopOpPos, loopStart);
+        if (!leavePatchStack.empty()) {
+            for (size_t pos : leavePatchStack.back())
+                patchJmp(pos, loopOpPos + 2);
+            leavePatchStack.pop_back();
+        }
+        return true;
+    } else if (word == "i") {
+        emit(OpCode::OP_FETCH_R);
+        return true;
+    } else if (word == "j") {
+        emit(OpCode::OP_J);
+        return true;
+    } else if (word == "leave") {
+        if (leavePatchStack.empty())
+            throw StakkuException("'leave' used outside of do..loop");
+        emit(OpCode::OP_FROM_R);
+        emit(OpCode::OP_DROP);
+        emit(OpCode::OP_FROM_R);
+        emit(OpCode::OP_DROP);
+        leavePatchStack.back().push_back(emitJmp(OpCode::OP_JMP));
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::compileBeginLoop(std::string word, Word _word) {
+    if (word == "begin") {
+        auto &buf = isDefining ? defBytecode : bytecode;
+        patchStack.push_back(buf.size());
+        return true;
+    } else if (word == "while") {
+        patchStack.push_back(emitJmp(OpCode::OP_JMP_IF_Z));
+        return true;
+    } else if (word == "repeat") {
+        if (patchStack.size() < 2)
+            throw UnmatchedControlWord(_word.value);
+        auto &buf = isDefining ? defBytecode : bytecode;
+        size_t whilePatch = patchStack.back();
+        patchStack.pop_back();
+        size_t beginPos = patchStack.back();
+        patchStack.pop_back();
+        emitJmp(OpCode::OP_JMP);
+        patchJmp(buf.size() - 2, beginPos);
+        patchJmp(whilePatch, buf.size());
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::compileControlWord(std::string word, Word _word) {
+    if (word == "if" || word == "else" || word == "then") {
+        return compileConditional(word, _word);
+    }
+
+    if (word == "do" || word == "loop" || word == "leave" || word == "i" || word == "j") {
+        return compileCountedLoop(word, _word);
+    }
+
+    if (word == "begin" || word == "while" || word == "repeat") {
+        return compileBeginLoop(word, _word);
+    }
+
+    return false;
+}
+
+bool Compiler::compileWord(std::string word, Word _word) {
+    return processComment(word, _word) || processDefState(word, _word) ||
+           processVarState(word, _word) || processValue(word, _word) ||
+           compileControlWord(word, _word) || processKnownWord(word, _word);
+}
+
+void Compiler::finalizeDefs() {
+    for (const auto &pdef : pendingDefs) {
+        std::string lowerName = toLower(pdef.name);
+        if (wordDict.find(lowerName) != wordDict.end()) {
+            throw StakkuException("Duplicate definition: " + pdef.name);
+        }
+        for (const auto &other : pendingDefs) {
+            if (&other != &pdef && toLower(other.name) == lowerName) {
+                throw StakkuException("Duplicate definition: " + pdef.name);
+            }
+        }
+    }
+
+    for (auto &pdef : pendingDefs) {
+        size_t wordStart = allDefs.size();
+        wordDict.insert({toLower(pdef.name), wordStart});
+        for (auto &[localPos, target] : pdef.callPatches)
+            defsCallPatches.push_back({wordStart + localPos, target});
+        for (auto &[localPos, target] : pdef.jmpPatches)
+            defsJmpPatches.emplace_back(wordStart + localPos, wordStart + target);
+        allDefs.insert(allDefs.end(), pdef.bytecode.begin(), pdef.bytecode.end());
+    }
+    pendingDefs.clear();
+}
+
+bool Compiler::compileWords(const std::vector<Word> &words) {
     const Word *currentWord = nullptr;
     try {
         for (const Word &word : words) {
@@ -185,186 +445,8 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
 
             std::string lower = toLower(word.value);
 
-            if (lower == "(") {
-                commentDepth++;
-                continue;
-            }
-            if (lower == ")") {
-                if (commentDepth == 0)
-                    throw UnmatchedComment(word.value);
-                commentDepth--;
-                continue;
-            }
-            if (lower.empty() || commentDepth > 0)
-                continue;
-
-            if (lower == ":") {
-                if (isDefining)
-                    throw FunctionInFunction();
-                isDefining = true;
-                expectName = true;
-                continue;
-            }
-            if (expectName) {
-                if (isReservedName(lower)) {
-                    throw StakkuException("Cannot use reserved word as a definition name: " +
-                                          word.value);
-                }
-                defName = lower;
-                expectName = false;
-                continue;
-            }
-            if (expectVariable) {
-                if (isReservedName(lower)) {
-                    throw StakkuException("Cannot use reserved word as a variable name: " +
-                                          word.value);
-                }
-
-                size_t addr = nextMemAddr++;
-                variables[lower] = addr;
-                expectVariable = false;
-                continue;
-            }
-
-            auto it = variables.find(lower);
-            if (it != variables.end()) {
-                emitPushNum(it->second);
-                continue;
-            }
-
-            if (lower == ";") {
-                if (!isDefining)
-                    throw UnmatchedFunction();
-                if (defName.empty())
-                    throw UnnamedFunction();
-                if (!patchStack.empty())
-                    throw UnmatchedControlWord(currentWord->value);
-
-                defBytecode.push_back(static_cast<uint8_t>(OpCode::OP_RETURN));
-
-                pendingDefs.push_back(
-                    {defName, defBytecode, currentDefCallPatches, currentDefJmpPatches});
-                currentDefCallPatches.clear();
-                currentDefJmpPatches.clear();
-
-                defBytecode.clear();
-                defName.clear();
-                isDefining = false;
-                continue;
-            }
-
-            try {
-                size_t idx = 0;
-                double val = std::stod(lower, &idx);
-                if (idx == lower.size()) {
-                    emitPushNum(val);
-                    continue;
-                }
-            } catch (const std::invalid_argument &) {
-            } catch (const std::out_of_range &) {
-                throw InvalidNumber(word.value);
-            }
-
-            if (lower == "if") {
-                patchStack.push_back(emitJmp(OpCode::OP_JMP_IF_Z));
-                continue;
-            } else if (lower == "else") {
-                if (patchStack.empty())
-                    throw UnmatchedControlWord(currentWord->value);
-                auto &buf = isDefining ? defBytecode : bytecode;
-                size_t patchPos = emitJmp(OpCode::OP_JMP);
-                patchJmp(patchStack.back(), buf.size());
-                patchStack.pop_back();
-                patchStack.push_back(patchPos);
-                continue;
-            } else if (lower == "then") {
-                if (patchStack.empty())
-                    throw UnmatchedControlWord(currentWord->value);
-                auto &buf = isDefining ? defBytecode : bytecode;
-                patchJmp(patchStack.back(), buf.size());
-                patchStack.pop_back();
-                continue;
-            } else if (lower == "do") {
-                auto &buf = isDefining ? defBytecode : bytecode;
-                emit(OpCode::OP_SWAP);
-                emit(OpCode::OP_TO_R);
-                emit(OpCode::OP_TO_R);
-                size_t loopStart = buf.size();
-                patchStack.push_back(loopStart);
-                leavePatchStack.emplace_back();
-                continue;
-            } else if (lower == "loop") {
-                if (patchStack.empty())
-                    throw UnmatchedControlWord(currentWord->value);
-                size_t loopStart = patchStack.back();
-                patchStack.pop_back();
-                size_t loopOpPos = emitJmp(OpCode::OP_LOOP);
-                patchJmp(loopOpPos, loopStart);
-                if (!leavePatchStack.empty()) {
-                    for (size_t pos : leavePatchStack.back())
-                        patchJmp(pos, loopOpPos + 2);
-                    leavePatchStack.pop_back();
-                }
-                continue;
-            } else if (lower == "i") {
-                emit(OpCode::OP_FETCH_R);
-                continue;
-            } else if (lower == "j") {
-                emit(OpCode::OP_J);
-                continue;
-            } else if (lower == "leave") {
-                if (leavePatchStack.empty())
-                    throw StakkuException("'leave' used outside of do..loop");
-                emit(OpCode::OP_FROM_R);
-                emit(OpCode::OP_DROP);
-                emit(OpCode::OP_FROM_R);
-                emit(OpCode::OP_DROP);
-                leavePatchStack.back().push_back(emitJmp(OpCode::OP_JMP));
-                continue;
-            } else if (lower == "begin") {
-                auto &buf = isDefining ? defBytecode : bytecode;
-                patchStack.push_back(buf.size());
-                continue;
-            } else if (lower == "while") {
-                patchStack.push_back(emitJmp(OpCode::OP_JMP_IF_Z));
-                continue;
-            } else if (lower == "repeat") {
-                if (patchStack.size() < 2)
-                    throw UnmatchedControlWord(currentWord->value);
-                auto &buf = isDefining ? defBytecode : bytecode;
-                size_t whilePatch = patchStack.back();
-                patchStack.pop_back();
-                size_t beginPos = patchStack.back();
-                patchStack.pop_back();
-                emitJmp(OpCode::OP_JMP);
-                patchJmp(buf.size() - 2, beginPos);
-                patchJmp(whilePatch, buf.size());
-                continue;
-            }
-            if (lower == "variable") {
-                expectVariable = true;
-                continue;
-            }
-
-            size_t offset = 0;
-            if (lookupWord(lower, offset)) {
-                emit(OpCode::OP_CALL);
-                auto &buf = isDefining ? defBytecode : bytecode;
-                size_t opPos = buf.size();
-                buf.insert(buf.end(), sizeof(uint16_t), 0);
-                if (isDefining)
-                    currentDefCallPatches.push_back({opPos, offset});
-                else
-                    topLevelCallPatches.push_back({opPos, offset});
-                continue;
-            }
-
-            auto it2 = simpleWords.find(lower);
-            if (it2 != simpleWords.end()) {
-                emit(it2->second);
-            } else {
+            if (!compileWord(lower, word))
                 throw UnknownWord(word.value);
-            }
         }
         if (!patchStack.empty())
             throw UnmatchedControlWord(currentWord->value);
@@ -373,64 +455,79 @@ std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
         if (commentDepth > 0)
             throw UnmatchedComment("(");
 
-        for (const auto &pdef : pendingDefs) {
-            std::string lowerName = toLower(pdef.name);
-            if (wordDict.find(lowerName) != wordDict.end()) {
-                throw StakkuException("Duplicate definition: " + pdef.name);
-            }
-            for (const auto &other : pendingDefs) {
-                if (&other != &pdef && toLower(other.name) == lowerName) {
-                    throw StakkuException("Duplicate definition: " + pdef.name);
-                }
-            }
-        }
-
-        for (auto &pdef : pendingDefs) {
-            size_t wordStart = allDefs.size();
-            wordDict.insert({toLower(pdef.name), wordStart});
-            for (auto &[localPos, target] : pdef.callPatches)
-                defsCallPatches.push_back({wordStart + localPos, target});
-            for (auto &[localPos, target] : pdef.jmpPatches)
-                defsJmpPatches.emplace_back(wordStart + localPos, wordStart + target);
-            allDefs.insert(allDefs.end(), pdef.bytecode.begin(), pdef.bytecode.end());
-        }
-        pendingDefs.clear();
-
+        finalizeDefs();
     } catch (const StakkuException &e) {
         if (currentWord)
             parseStakkuError(e, *currentWord, words);
+        return false;
+    }
+
+    return true;
+}
+
+void Compiler::prependMemoryAllocation() {
+    if (nextMemAddr == 0)
+        return;
+
+    if (nextMemAddr > std::numeric_limits<uint16_t>::max()) {
+        throw StakkuException("Too many variables");
+    }
+
+    uint16_t count = static_cast<uint16_t>(nextMemAddr);
+
+    bytecode.insert(bytecode.begin(),
+                    {static_cast<uint8_t>(OpCode::OP_ALLOC), static_cast<uint8_t>(count & 0xff),
+                     static_cast<uint8_t>((count >> 8) & 0xff)});
+
+    for (auto &[position, target] : topLevelCallPatches) {
+        position += 3;
+    }
+}
+
+void Compiler::patchAddress(size_t position, size_t targetOffset, size_t definitionsBase) {
+    size_t address = definitionsBase + targetOffset;
+
+    if (address > std::numeric_limits<uint16_t>::max()) {
+        throw StakkuException(
+            "Program too large: compiled bytecode exceeds the 16-bit address space (" +
+            std::to_string(address) + " > 65535 bytes).");
+    }
+
+    uint16_t address16 = static_cast<uint16_t>(address);
+    std::memcpy(&bytecode[position], &address16, sizeof(address16));
+}
+
+void Compiler::assembleBytecode() {
+    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_HALT));
+
+    defsBaseAddress = bytecode.size();
+    bytecode.insert(bytecode.end(), allDefs.begin(), allDefs.end());
+}
+
+void Compiler::patchAddresses() {
+    for (auto &[position, target] : topLevelCallPatches) {
+        patchAddress(position, target, defsBaseAddress);
+    }
+
+    for (auto &[position, target] : defsCallPatches) {
+        patchAddress(defsBaseAddress + position, target, defsBaseAddress);
+    }
+
+    for (auto &[position, target] : defsJmpPatches) {
+        patchAddress(defsBaseAddress + position, target, defsBaseAddress);
+    }
+}
+
+std::vector<uint8_t> Compiler::compile(const std::vector<Word> &words) {
+    resetCompilationState();
+
+    if (!compileWords(words)) {
         return {};
     }
 
-    if (nextMemAddr > 0) {
-        bytecode.insert(bytecode.begin(), static_cast<uint8_t>(OpCode::OP_ALLOC));
-        uint16_t count = static_cast<uint16_t>(nextMemAddr);
-        bytecode.insert(bytecode.begin() + 1, static_cast<uint8_t>(count & 0xFF));
-        bytecode.insert(bytecode.begin() + 2, static_cast<uint8_t>((count >> 8) & 0xFF));
-        for (auto &[pos, target] : topLevelCallPatches)
-            pos += 3;
-    }
-
-    bytecode.push_back(static_cast<uint8_t>(OpCode::OP_HALT));
-    size_t defsBaseAddress = bytecode.size();
-    bytecode.insert(bytecode.end(), allDefs.begin(), allDefs.end());
-
-    auto patchCall = [&](size_t pos, size_t targetOffset) {
-        size_t addr = defsBaseAddress + targetOffset;
-        if (addr > std::numeric_limits<uint16_t>::max()) {
-            throw StakkuException(
-                "Program too large: compiled bytecode exceeds the 16-bit address space (" +
-                std::to_string(addr) + " > 65535 bytes). Definitions and code must fit in 64 KB.");
-        }
-        uint16_t addr16 = static_cast<uint16_t>(addr);
-        std::memcpy(&bytecode[pos], &addr16, sizeof(addr16));
-    };
-    for (auto &[pos, target] : topLevelCallPatches)
-        patchCall(pos, target);
-    for (auto &[relPos, target] : defsCallPatches)
-        patchCall(defsBaseAddress + relPos, target);
-    for (auto &[relPos, target] : defsJmpPatches)
-        patchCall(defsBaseAddress + relPos, target);
+    prependMemoryAllocation();
+    assembleBytecode();
+    patchAddresses();
 
     return bytecode;
 }

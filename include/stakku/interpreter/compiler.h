@@ -3,6 +3,7 @@
 #include "exceptions.h"
 #include "opcode.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -40,20 +41,39 @@ class Compiler {
     void parseStakkuError(const StakkuException &e, const Word &word,
                           const std::vector<Word> &words);
 
+    // Compilation helpers
+    void resetCompilationState();
+
+    bool compileWords(const std::vector<Word> &words);
+    bool compileWord(std::string word, Word _words);
+    bool processComment(std::string word, Word _word);
+    bool processDefState(std::string word, Word _word);
+    bool processVarState(std::string word, Word _word);
+    bool processValue(std::string word, Word _word);
+    bool processKnownWord(std::string word, Word _word);
+
+    bool compileControlWord(std::string word, Word _word);
+    bool compileConditional(std::string word, Word _word);
+    bool compileCountedLoop(std::string word, Word _word);
+    bool compileBeginLoop(std::string word, Word _word);
+
+    void finalizeDefs();
+    void prependMemoryAllocation();
+    void assembleBytecode();
+
+    void patchAddress(size_t position, size_t targetOffset, size_t definitionsBase);
+    void patchAddresses();
+
+    size_t defsBaseAddress = 0;
+
     std::vector<uint8_t> bytecode;
     std::vector<size_t> patchStack;
-    std::unordered_map<std::string, size_t>
-        wordDict;                 // name -> offset within allDefs (was: name -> bytecode)
-    std::vector<uint8_t> allDefs; // concatenated bodies of all closed word defs
-    std::vector<std::pair<size_t, size_t>>
-        topLevelCallPatches; // {posInBytecode, targetOffsetInAllDefs}
-    // Persistent because allDefs survives across REPL compilations.
-    std::vector<std::pair<size_t, size_t>> defsCallPatches; // {posInAllDefs, targetOffsetInAllDefs}
-    std::vector<std::pair<size_t, size_t>>
-        defsJmpPatches; // {posInAllDefs, targetInAllDefs} for current compilation only
-    std::vector<std::pair<size_t, size_t>>
-        currentDefCallPatches; // patches recorded while inside a `:` def, positions local to
-                               // defBytecode
+    std::unordered_map<std::string, size_t> wordDict;
+    std::vector<uint8_t> allDefs;
+    std::vector<std::pair<size_t, size_t>> topLevelCallPatches;
+    std::vector<std::pair<size_t, size_t>> defsCallPatches;
+    std::vector<std::pair<size_t, size_t>> defsJmpPatches;
+    std::vector<std::pair<size_t, size_t>> currentDefCallPatches;
 
     std::unordered_map<std::string, size_t> variables;
     size_t nextMemAddr;
@@ -66,8 +86,7 @@ class Compiler {
     std::string defName;
     std::vector<uint8_t> defBytecode;
 
-    std::vector<std::pair<size_t, size_t>>
-        currentDefJmpPatches; // {patchPos, target} relative to defBytecode
+    std::vector<std::pair<size_t, size_t>> currentDefJmpPatches;
 
     std::vector<std::vector<size_t>> leavePatchStack;
 
@@ -75,8 +94,7 @@ class Compiler {
         std::string name;
         std::vector<uint8_t> bytecode;
         std::vector<std::pair<size_t, size_t>> callPatches;
-        std::vector<std::pair<size_t, size_t>>
-            jmpPatches; // {patchPosInDefBytecode, targetOffsetInDefBytecode}
+        std::vector<std::pair<size_t, size_t>> jmpPatches;
     };
     std::vector<PendingDef> pendingDefs;
 
