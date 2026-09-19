@@ -8,8 +8,8 @@
 #include <vector>
 
 #include "help.h"
-#include "interpreter/compiler.h"
-#include "interpreter/vm.h"
+#include "compiler/compiler.h"
+#include "compiler/vm.h"
 #include "repl.h"
 #include "split.h"
 

@@ -1,7 +1,7 @@
 #include "catch2/catch_test_macros.hpp"
 #include "exceptions.h"
-#include "interpreter/compiler.h"
-#include "interpreter/vm.h"
+#include "compiler/compiler.h"
+#include "compiler/vm.h"
 #include <vector>
 
 TEST_CASE("Compiler errors: function inside function", "[compiler_errors]") {

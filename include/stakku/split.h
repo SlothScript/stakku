@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "interpreter/compiler.h"
+#include "compiler/compiler.h"
 
 namespace stakku {
 

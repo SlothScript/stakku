@@ -20,9 +20,9 @@ if(ZIG_CXX)
 endif()
 
 set(INTERP_SOURCES
-    src/interpreter/compiler.cpp
-    src/interpreter/vm.cpp
-    src/interpreter/stack.cpp
+    src/compiler/compiler.cpp
+    src/compiler/vm.cpp
+    src/compiler/stack.cpp
 )
 
 add_library(stakku_lib STATIC ${INTERP_SOURCES})
@@ -32,7 +32,7 @@ target_compile_options(stakku_lib PRIVATE -Wall -Wextra -Wpedantic)
 target_include_directories(stakku_lib
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include/stakku
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/stakku/interpreter
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/stakku/compiler
 )
 
 set(APP_SOURCES

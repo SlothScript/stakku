@@ -1,6 +1,6 @@
 #include "catch2/catch_test_macros.hpp"
 #include "exceptions.h"
-#include "interpreter/stack.h"
+#include "compiler/stack.h"
 #include <string>
 
 TEST_CASE("Stack: push/pop", "[stack]") {

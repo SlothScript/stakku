@@ -1,8 +1,8 @@
 #include "catch2/catch_test_macros.hpp"
 #include "exceptions.h"
-#include "interpreter/compiler.h"
-#include "interpreter/stack.h"
-#include "interpreter/vm.h"
+#include "compiler/compiler.h"
+#include "compiler/stack.h"
+#include "compiler/vm.h"
 #include <vector>
 
 namespace {

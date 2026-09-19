@@ -4,9 +4,9 @@
 #include <string>
 #include <utility>
 
-#include "interpreter/compiler.h"
-#include "interpreter/stack.h"
-#include "interpreter/vm.h"
+#include "compiler/compiler.h"
+#include "compiler/stack.h"
+#include "compiler/vm.h"
 
 namespace stakku {
 class REPL {
