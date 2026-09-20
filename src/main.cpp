@@ -7,9 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "help.h"
+#include "compiler/codegen.h"
 #include "compiler/compiler.h"
 #include "compiler/vm.h"
+#include "help.h"
 #include "repl.h"
 #include "split.h"
 
@@ -147,6 +148,44 @@ int runReplWithFile(const char *filename) {
     return 0;
 }
 
+std::string compileFileAsm(const std::string &filename) {
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "File could not be opened: " << filename << std::endl;
+        return {};
+    }
+
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    std::string content = ss.str();
+
+    std::vector<Word> words = split(content, {" ", "\n"});
+
+    Compiler compiler;
+    std::vector<uint8_t> bytecode;
+    try {
+        bytecode = compiler.compile(words);
+        if (bytecode.empty()) {
+            throw std::runtime_error("File is empty");
+        }
+    } catch (const std::runtime_error &e) {
+        std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
+        return "";
+    }
+
+    CodeGen generator;
+    try {
+        std::string _asm = generator.generate(bytecode);
+        if (_asm.empty()) {
+            throw std::runtime_error("No asm generated");
+        }
+        return _asm;
+    } catch (const std::runtime_error &e) {
+        std::cerr << "An unexpected error occurred: " << e.what() << std::endl;
+        return "";
+    }
+}
+
 } // namespace
 
 int main(int argc, char *argv[]) {
@@ -175,6 +214,18 @@ int main(int argc, char *argv[]) {
         std::ofstream fout;
         fout.open(filename, std::fstream::binary);
         fout.write(reinterpret_cast<const char *>(out.data()), out.size());
+        return 0;
+    }
+
+    if (argc >= 3 && std::string(argv[1]) == "asm") {
+        std::string out = compileFileAsm(argv[2]);
+        if (out.empty()) {
+            return 1;
+        }
+        std::string filename = (argc >= 4) ? argv[3] : "out.asm";
+
+        std::ofstream fout(filename);
+        fout << out;
         return 0;
     }
 

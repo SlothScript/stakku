@@ -21,6 +21,8 @@ endif()
 
 set(INTERP_SOURCES
     src/compiler/compiler.cpp
+    src/compiler/codegen.cpp
+    src/compiler/codegen_runtime.cpp
     src/compiler/vm.cpp
     src/compiler/stack.cpp
 )
